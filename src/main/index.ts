@@ -5,9 +5,11 @@ import { MediaScanner } from './utils/MediaScanner';
 import { VideoProcessor } from './utils/VideoProcessor';
 
 let mainWindow: BrowserWindow | null = null;
-const dbManager = new DatabaseManager();
+let dbManager: DatabaseManager;
 
-function createWindow() {
+async function createWindow() {
+  dbManager = new DatabaseManager();
+  
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -41,7 +43,7 @@ ipcMain.handle('scan-media-folder', async () => {
   
   const scanner = new MediaScanner();
   const files = await scanner.scan(result.filePaths[0]);
-  files.forEach(f => dbManager.addMedia(f));
+  for (const f of files) await dbManager.addMedia(f);
   return files;
 });
 
@@ -50,20 +52,14 @@ ipcMain.handle('get-all-media', () => dbManager.getAllMedia());
 ipcMain.handle('search-media-by-tags', (_, tags: string[]) => 
   dbManager.searchByTags(tags));
 
-ipcMain.handle('add-tag', (_, mediaId: string, tag: string) => {
-  dbManager.addTag(mediaId, tag);
-  return true;
-});
+ipcMain.handle('add-tag', (_, mediaId: string, tag: string) => 
+  dbManager.addTag(mediaId, tag));
 
-ipcMain.handle('remove-tag', (_, mediaId: string, tag: string) => {
-  dbManager.removeTag(mediaId, tag);
-  return true;
-});
+ipcMain.handle('remove-tag', (_, mediaId: string, tag: string) => 
+  dbManager.removeTag(mediaId, tag));
 
-ipcMain.handle('delete-media', (_, mediaId: string) => {
-  dbManager.deleteMedia(mediaId);
-  return true;
-});
+ipcMain.handle('delete-media', (_, mediaId: string) => 
+  dbManager.deleteMedia(mediaId));
 
 ipcMain.handle('trim-video-keep', async (_, input: string, output: string, start: number, end: number) => {
   await new VideoProcessor().trimKeep(input, output, start, end);

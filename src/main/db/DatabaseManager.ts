@@ -1,119 +1,106 @@
-import Database from 'better-sqlite3';
+import { JSONFilePreset } from 'lowdb/node';
 import path from 'path';
 import { app } from 'electron';
-import { MediaFile, MediaType } from '../../shared/types';
+import { MediaFile } from '../../shared/types';
+
+interface DatabaseSchema {
+  media: MediaFile[];
+  tags: { mediaId: string; tag: string }[];
+}
+
+const defaultData: DatabaseSchema = {
+  media: [],
+  tags: [],
+};
 
 export class DatabaseManager {
-  private db: Database.Database;
+  private db: any;
 
   constructor() {
-    const dbPath = path.join(app.getPath('userData'), 'media-library.db');
-    this.db = new Database(dbPath);
-    this.initTables();
+    const dbPath = path.join(app.getPath('userData'), 'db.json');
+    this.init(dbPath);
   }
 
-  private initTables() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS media (
-        id TEXT PRIMARY KEY,
-        path TEXT UNIQUE NOT NULL,
-        filename TEXT NOT NULL,
-        type TEXT NOT NULL,
-        size INTEGER,
-        duration REAL,
-        width INTEGER,
-        height INTEGER,
-        thumbnail TEXT,
-        created_at INTEGER,
-        modified_at INTEGER,
-        last_played INTEGER,
-        play_count INTEGER DEFAULT 0
-      )
-    `);
-
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        media_id TEXT NOT NULL,
-        tag TEXT NOT NULL,
-        created_at INTEGER DEFAULT (unixepoch()),
-        FOREIGN KEY (media_id) REFERENCES media(id) ON DELETE CASCADE,
-        UNIQUE(media_id, tag)
-      )
-    `);
-
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_tags_media ON tags(media_id)');
-    this.db.exec('CREATE INDEX IF NOT EXISTS idx_tags_tag ON tags(tag)');
+  private async init(dbPath: string) {
+    this.db = await JSONFilePreset(dbPath, defaultData);
+    await this.db.read();
   }
 
-  addMedia(media: MediaFile): void {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO media 
-      (id, path, filename, type, size, duration, width, height, thumbnail, created_at, modified_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    stmt.run(
-      media.id, media.path, media.filename, media.type, media.size,
-      media.duration || null, media.width || null, media.height || null,
-      media.thumbnail || null, media.createdAt, media.modifiedAt
+  async addMedia(media: MediaFile): Promise<void> {
+    await this.db.read();
+    const existing = this.db.data.media.findIndex((m: MediaFile) => m.id === media.id);
+    if (existing >= 0) {
+      this.db.data.media[existing] = media;
+    } else {
+      this.db.data.media.push(media);
+    }
+    await this.db.write();
+  }
+
+  async getAllMedia(): Promise<MediaFile[]> {
+    await this.db.read();
+    return this.db.data.media.map((m: MediaFile) => ({
+      ...m,
+      tags: this.getTagsSync(m.id),
+    })).sort((a: MediaFile, b: MediaFile) => b.createdAt - a.createdAt);
+  }
+
+  async getMediaById(id: string): Promise<MediaFile | null> {
+    await this.db.read();
+    const media = this.db.data.media.find((m: MediaFile) => m.id === id);
+    if (media) {
+      return { ...media, tags: this.getTagsSync(id) };
+    }
+    return null;
+  }
+
+  async deleteMedia(id: string): Promise<void> {
+    await this.db.read();
+    this.db.data.media = this.db.data.media.filter((m: MediaFile) => m.id !== id);
+    this.db.data.tags = this.db.data.tags.filter((t: any) => t.mediaId !== id);
+    await this.db.write();
+  }
+
+  async addTag(mediaId: string, tag: string): Promise<void> {
+    await this.db.read();
+    const exists = this.db.data.tags.find(
+      (t: any) => t.mediaId === mediaId && t.tag === tag
     );
+    if (!exists) {
+      this.db.data.tags.push({ mediaId, tag });
+      await this.db.write();
+    }
   }
 
-  getAllMedia(): MediaFile[] {
-    const stmt = this.db.prepare('SELECT * FROM media ORDER BY created_at DESC');
-    const rows = stmt.all() as any[];
-    return rows.map(row => this.rowToMediaFile(row));
+  async removeTag(mediaId: string, tag: string): Promise<void> {
+    await this.db.read();
+    this.db.data.tags = this.db.data.tags.filter(
+      (t: any) => !(t.mediaId === mediaId && t.tag === tag)
+    );
+    await this.db.write();
   }
 
-  getMediaById(id: string): MediaFile | null {
-    const stmt = this.db.prepare('SELECT * FROM media WHERE id = ?');
-    const row = stmt.get(id) as any;
-    return row ? this.rowToMediaFile(row) : null;
+  private getTagsSync(mediaId: string): string[] {
+    return this.db.data.tags
+      .filter((t: any) => t.mediaId === mediaId)
+      .map((t: any) => t.tag)
+      .sort();
   }
 
-  deleteMedia(id: string): void {
-    this.db.prepare('DELETE FROM media WHERE id = ?').run(id);
-  }
-
-  addTag(mediaId: string, tag: string): void {
-    try {
-      this.db.prepare('INSERT INTO tags (media_id, tag) VALUES (?, ?)').run(mediaId, tag);
-    } catch (e) {}
-  }
-
-  removeTag(mediaId: string, tag: string): void {
-    this.db.prepare('DELETE FROM tags WHERE media_id = ? AND tag = ?').run(mediaId, tag);
-  }
-
-  getTags(mediaId: string): string[] {
-    const stmt = this.db.prepare('SELECT tag FROM tags WHERE media_id = ? ORDER BY tag');
-    const rows = stmt.all(mediaId) as any[];
-    return rows.map(row => row.tag);
-  }
-
-  searchByTags(tags: string[]): MediaFile[] {
+  async searchByTags(tags: string[]): Promise<MediaFile[]> {
+    await this.db.read();
     if (tags.length === 0) return this.getAllMedia();
-    const placeholders = tags.map(() => '?').join(',');
-    const stmt = this.db.prepare(`
-      SELECT m.* FROM media m
-      INNER JOIN tags t ON m.id = t.media_id
-      WHERE t.tag IN (${placeholders})
-      GROUP BY m.id
-      HAVING COUNT(DISTINCT t.tag) = ?
-      ORDER BY m.created_at DESC
-    `);
-    const rows = stmt.all(...tags, tags.length) as any[];
-    return rows.map(row => this.rowToMediaFile(row));
-  }
-
-  private rowToMediaFile(row: any): MediaFile {
-    return {
-      id: row.id, path: row.path, filename: row.filename, type: row.type as MediaType,
-      size: row.size, duration: row.duration, width: row.width, height: row.height,
-      thumbnail: row.thumbnail, createdAt: row.created_at, modifiedAt: row.modified_at,
-      lastPlayed: row.last_played, playCount: row.play_count,
-      tags: this.getTags(row.id),
-    };
+    
+    const mediaIds = new Set<string>();
+    tags.forEach(tag => {
+      this.db.data.tags
+        .filter((t: any) => t.tag === tag)
+        .forEach((t: any) => mediaIds.add(t.mediaId));
+    });
+    
+    return this.db.data.media
+      .filter((m: MediaFile) => mediaIds.has(m.id))
+      .map((m: MediaFile) => ({ ...m, tags: this.getTagsSync(m.id) }))
+      .sort((a: MediaFile, b: MediaFile) => b.createdAt - a.createdAt);
   }
 }
