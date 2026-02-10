@@ -100,7 +100,7 @@ class MediaScanner {
   }
 }
 
-// Video Processor (placeholder)
+// Video Processor
 class VideoProcessor {
   async trimKeep(input, output, start, end) {
     throw new Error('Video trim not implemented');
@@ -124,8 +124,10 @@ async function createWindow() {
     }, show: false,
   });
 
-  if (process.env.VITE_DEV_SERVER_URL) {
-    await mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+  // 开发模式使用 Vite URL，生产模式使用本地文件
+  const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+  if (isDev) {
+    await mainWindow.loadURL('http://localhost:5173');
   } else {
     await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
