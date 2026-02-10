@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { spawn } = require('child_process');
 
 // Database
 class DatabaseManager {
@@ -103,10 +104,69 @@ class MediaScanner {
 // Video Processor
 class VideoProcessor {
   async trimKeep(input, output, start, end) {
-    throw new Error('Video trim not implemented');
+    return new Promise((resolve, reject) => {
+      const ffmpeg = spawn('ffmpeg', [
+        '-i', input,
+        '-ss', String(start),
+        '-to', String(end - start),
+        '-c', 'copy',
+        '-y',
+        output
+      ]);
+      
+      let stderr = '';
+      ffmpeg.stderr.on('data', (data) => { stderr += data; });
+      
+      ffmpeg.on('close', (code) => {
+        if (code === 0) resolve(true);
+        else reject(new Error('FFmpeg failed: ' + stderr));
+      });
+      
+      ffmpeg.on('error', reject);
+    });
   }
-  async trimRemove(input, output, start, end) {
-    throw new Error('Video trim not implemented');
+  
+  async trimRemove(input) {
+    return new Promise((resolve, reject) => {
+      const temp1 = input + '.temp1.mp4';
+      const temp2 = input + '.temp2.mp4';
+      
+      const commands = [
+        ['-i', input, '-to', String(start), '-c', 'copy', '-y', temp1],
+        ['-i', input, '-ss', String(end), '-c', 'copy', '-y', temp2],
+        ['-i', temp1, '-i', temp2, '-filter_complex', '[0:v][1:v]concat=v=1:n=2[outv];[0:a][1:a]concat=a=1:n=2[outa]', '-map', '[outv]', '-map', '[outa]', '-y', output]
+      ];
+      
+      let currentCmd = 0;
+      
+      const runNext = () => {
+        if (currentCmd >= commands.length) {
+          try { fs.unlinkSync(temp1); } catch (e) {}
+          try { fs.unlinkSync(temp2); } catch (e) {}
+          resolve(true);
+          return;
+        }
+        
+        const cmd = commands[currentCmd];
+        const ffmpeg = spawn('ffmpeg', cmd);
+        
+        let stderr = '';
+        ffmpeg.stderr.on('data', (data) => { stderr += data; });
+        
+        ffmpeg.on('close', (code) => {
+          if (code === 0) {
+            currentCmd++;
+            runNext();
+          } else {
+            reject(new Error('FFmpeg failed at step ' + (currentCmd + 1) + ': ' + stderr));
+          }
+        });
+        
+        ffmpeg.on('error', reject);
+      };
+      
+      runNext();
+    });
   }
 }
 
@@ -124,7 +184,6 @@ async function createWindow() {
     }, show: false,
   });
 
-  // 开发模式使用 Vite URL，生产模式使用本地文件
   const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
   if (isDev) {
     await mainWindow.loadURL('http://localhost:5173');
@@ -137,13 +196,19 @@ async function createWindow() {
 
 // IPC
 ipcMain.handle('scan-media-folder', async () => {
-  if (!mainWindow) return null;
+  console.log('scan-media-folder called');
+  if (!mainWindow) {
+    console.error('No main window');
+    return null;
+  }
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'], title: '选择媒体文件夹',
   });
+  console.log('Dialog result:', result);
   if (result.canceled) return null;
   const scanner = new MediaScanner();
   const files = await scanner.scan(result.filePaths[0]);
+  console.log('Scanned files:', files.length);
   for (const f of files) dbManager.addMedia(f);
   return files;
 });
@@ -153,10 +218,12 @@ ipcMain.handle('add-tag', (_, mediaId, tag) => { dbManager.addTag(mediaId, tag);
 ipcMain.handle('remove-tag', (_, mediaId, tag) => { dbManager.removeTag(mediaId, tag); return true; });
 ipcMain.handle('delete-media', (_, mediaId) => { dbManager.deleteMedia(mediaId); return true; });
 ipcMain.handle('trim-video-keep', async (_, input, output, start, end) => {
-  await new VideoProcessor().trimKeep(input, output, start, end); return true;
+  await new VideoProcessor().trimKeep(input, output, start, end);
+  return true;
 });
 ipcMain.handle('trim-video-remove', async (_, input, output, start, end) => {
-  await new VideoProcessor().trimRemove(input, output, start, end); return true;
+  await new VideoProcessor().trimRemove(input, output, start, end);
+  return true;
 });
 
 app.whenReady().then(createWindow).catch(console.error);

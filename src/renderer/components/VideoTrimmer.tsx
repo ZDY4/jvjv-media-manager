@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { MediaFile } from '../../shared/types';
 
 interface VideoTrimmerProps {
@@ -40,8 +40,8 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
       alert(`剪辑完成！\n保存至: ${outputPath}`);
       onComplete();
       onClose();
-    } catch (err) {
-      alert('剪辑失败: ' + err);
+    } catch (err: any) {
+      alert('剪辑失败: ' + (err?.message || String(err)));
     } finally {
       setIsProcessing(false);
     }

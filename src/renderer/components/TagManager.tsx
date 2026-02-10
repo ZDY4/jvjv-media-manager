@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { MediaFile } from '../../shared/types';
 
 interface TagManagerProps {
@@ -10,13 +10,14 @@ export const TagManager: React.FC<TagManagerProps> = ({ media, onUpdate }) => {
   const [newTag, setNewTag] = useState('');
 
   const handleAddTag = async () => {
-    if (!newTag.trim()) return;
+    if (!newTag.trim() || !window.electronAPI) return;
     await window.electronAPI.addTag(media.id, newTag.trim());
     setNewTag('');
     onUpdate();
   };
 
   const handleRemoveTag = async (tag: string) => {
+    if (!window.electronAPI) return;
     await window.electronAPI.removeTag(media.id, tag);
     onUpdate();
   };

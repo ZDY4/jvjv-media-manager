@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { MediaFile } from '../shared/types';
 import { MediaGrid } from './components/MediaGrid';
 import { MediaPlayer } from './components/MediaPlayer';
@@ -8,34 +8,44 @@ import { VideoTrimmer } from './components/VideoTrimmer';
 
 function App() {
   const [mediaList, setMediaList] = useState<MediaFile[]>([]);
-  const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
+  const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [searchTags, setSearchTags] = useState<string[]>([]);
   const [showTrimmer, setShowTrimmer] = useState(false);
+  const [apiReady, setApiReady] = useState(false);
+
+  const selectedMedia = mediaList.find(m => m.id === selectedMediaId) || null;
 
   useEffect(() => {
-    loadMedia();
+    if (window.electronAPI) {
+      setApiReady(true);
+      loadMedia();
+    }
   }, []);
 
   useEffect(() => {
+    if (!apiReady) return;
     if (searchTags.length > 0) {
       searchByTags();
     } else {
       loadMedia();
     }
-  }, [searchTags]);
+  }, [searchTags, apiReady]);
 
   const loadMedia = async () => {
+    if (!window.electronAPI) return;
     const media = await window.electronAPI.getAllMedia();
     setMediaList(media);
   };
 
   const searchByTags = async () => {
+    if (!window.electronAPI) return;
     const media = await window.electronAPI.searchMediaByTags(searchTags);
     setMediaList(media);
   };
 
   const handleScanFolder = async () => {
+    if (!window.electronAPI) return;
     const newMedia = await window.electronAPI.scanMediaFolder();
     if (newMedia) {
       loadMedia();
@@ -43,18 +53,19 @@ function App() {
   };
 
   const handleDeleteMedia = async (mediaId: string) => {
+    if (!window.electronAPI) return;
     if (confirm('确定要删除这个媒体文件吗？')) {
       await window.electronAPI.deleteMedia(mediaId);
       loadMedia();
-      if (selectedMedia?.id === mediaId) {
-        setSelectedMedia(null);
+      if (selectedMediaId === mediaId) {
+        setSelectedMediaId(null);
         setIsPlaying(false);
       }
     }
   };
 
   const handlePlayMedia = (media: MediaFile) => {
-    setSelectedMedia(media);
+    setSelectedMediaId(media.id);
     setIsPlaying(true);
   };
 
