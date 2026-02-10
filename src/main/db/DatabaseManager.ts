@@ -1,4 +1,4 @@
-import { JSONFilePreset } from 'lowdb/node';
+import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
 import { MediaFile } from '../../shared/types';
@@ -14,40 +14,56 @@ const defaultData: DatabaseSchema = {
 };
 
 export class DatabaseManager {
-  private db: any;
+  private dbPath: string;
+  private data: DatabaseSchema;
 
   constructor() {
-    const dbPath = path.join(app.getPath('userData'), 'db.json');
-    this.init(dbPath);
+    this.dbPath = path.join(app.getPath('userData'), 'db.json');
+    this.data = this.loadData();
   }
 
-  private async init(dbPath: string) {
-    this.db = await JSONFilePreset(dbPath, defaultData);
-    await this.db.read();
+  private loadData(): DatabaseSchema {
+    try {
+      if (fs.existsSync(this.dbPath)) {
+        const content = fs.readFileSync(this.dbPath, 'utf-8');
+        return { ...defaultData, ...JSON.parse(content) };
+      }
+    } catch (error) {
+      console.error('Failed to load database:', error);
+    }
+    return { ...defaultData };
+  }
+
+  private saveData(): void {
+    try {
+      const dir = path.dirname(this.dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(this.dbPath, JSON.stringify(this.data, null, 2));
+    } catch (error) {
+      console.error('Failed to save database:', error);
+    }
   }
 
   async addMedia(media: MediaFile): Promise<void> {
-    await this.db.read();
-    const existing = this.db.data.media.findIndex((m: MediaFile) => m.id === media.id);
+    const existing = this.data.media.findIndex((m: MediaFile) => m.id === media.id);
     if (existing >= 0) {
-      this.db.data.media[existing] = media;
+      this.data.media[existing] = media;
     } else {
-      this.db.data.media.push(media);
+      this.data.media.push(media);
     }
-    await this.db.write();
+    this.saveData();
   }
 
   async getAllMedia(): Promise<MediaFile[]> {
-    await this.db.read();
-    return this.db.data.media.map((m: MediaFile) => ({
-      ...m,
-      tags: this.getTagsSync(m.id),
-    })).sort((a: MediaFile, b: MediaFile) => b.createdAt - a.createdAt);
+    return this.data.media
+      .map((m: MediaFile) => ({ ...m, tags: this.getTagsSync(m.id) }))
+      .sort((a: MediaFile, b: MediaFile) => b.createdAt - a.createdAt);
   }
 
   async getMediaById(id: string): Promise<MediaFile | null> {
-    await this.db.read();
-    const media = this.db.data.media.find((m: MediaFile) => m.id === id);
+    const media = this.data.media.find((m: MediaFile) => m.id === id);
     if (media) {
       return { ...media, tags: this.getTagsSync(id) };
     }
@@ -55,50 +71,46 @@ export class DatabaseManager {
   }
 
   async deleteMedia(id: string): Promise<void> {
-    await this.db.read();
-    this.db.data.media = this.db.data.media.filter((m: MediaFile) => m.id !== id);
-    this.db.data.tags = this.db.data.tags.filter((t: any) => t.mediaId !== id);
-    await this.db.write();
+    this.data.media = this.data.media.filter((m: MediaFile) => m.id !== id);
+    this.data.tags = this.data.tags.filter((t: any) => t.mediaId !== id);
+    this.saveData();
   }
 
   async addTag(mediaId: string, tag: string): Promise<void> {
-    await this.db.read();
-    const exists = this.db.data.tags.find(
+    const exists = this.data.tags.find(
       (t: any) => t.mediaId === mediaId && t.tag === tag
     );
     if (!exists) {
-      this.db.data.tags.push({ mediaId, tag });
-      await this.db.write();
+      this.data.tags.push({ mediaId, tag });
+      this.saveData();
     }
   }
 
   async removeTag(mediaId: string, tag: string): Promise<void> {
-    await this.db.read();
-    this.db.data.tags = this.db.data.tags.filter(
+    this.data.tags = this.data.tags.filter(
       (t: any) => !(t.mediaId === mediaId && t.tag === tag)
     );
-    await this.db.write();
+    this.saveData();
   }
 
   private getTagsSync(mediaId: string): string[] {
-    return this.db.data.tags
+    return this.data.tags
       .filter((t: any) => t.mediaId === mediaId)
       .map((t: any) => t.tag)
       .sort();
   }
 
   async searchByTags(tags: string[]): Promise<MediaFile[]> {
-    await this.db.read();
     if (tags.length === 0) return this.getAllMedia();
     
     const mediaIds = new Set<string>();
     tags.forEach(tag => {
-      this.db.data.tags
+      this.data.tags
         .filter((t: any) => t.tag === tag)
         .forEach((t: any) => mediaIds.add(t.mediaId));
     });
     
-    return this.db.data.media
+    return this.data.media
       .filter((m: MediaFile) => mediaIds.has(m.id))
       .map((m: MediaFile) => ({ ...m, tags: this.getTagsSync(m.id) }))
       .sort((a: MediaFile, b: MediaFile) => b.createdAt - a.createdAt);
