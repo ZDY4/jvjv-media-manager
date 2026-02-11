@@ -1,12 +1,32 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { MediaFile } from '../../shared/types';
 
 interface MediaPlayerProps {
   media: MediaFile;
 }
 
-export const MediaPlayer: React.FC<MediaPlayerProps> = ({ media }) => {
+export interface MediaPlayerRef {
+  play: () => void;
+  pause: () => void;
+  seek: (seconds: number) => void;
+}
+
+export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(({ media }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useImperativeHandle(ref, () => ({
+    play: () => {
+      videoRef.current?.play();
+    },
+    pause: () => {
+      videoRef.current?.pause();
+    },
+    seek: (seconds: number) => {
+      if (videoRef.current) {
+        videoRef.current.currentTime += seconds;
+      }
+    },
+  }));
 
   useEffect(() => {
     if (media.type === 'video' && videoRef.current) {
@@ -43,4 +63,6 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({ media }) => {
       </div>
     </div>
   );
-};
+});
+
+MediaPlayer.displayName = 'MediaPlayer';
