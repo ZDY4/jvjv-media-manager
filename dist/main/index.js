@@ -2,11 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const ffmpeg = require('fluent-ffmpeg');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-
-// 设置 FFmpeg 路径
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+const { Worker } = require('worker_threads');
 
 // 配置管理
 const CONFIG_FILE = 'config.json';
@@ -153,123 +149,10 @@ class MediaScanner {
   }
 }
 
-// Video Processor with FFmpeg
-class VideoProcessor {
-  // 获取视频时长
-  async getDuration(inputPath) {
-    return new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(inputPath, (err, metadata) => {
-        if (err) return reject(err);
-        resolve(metadata.format.duration || 0);
-      });
-    });
-  }
-
-  // 保留片段
-  async trimKeep(inputPath, outputPath, startTime, endTime, onProgress) {
-    return new Promise((resolve, reject) => {
-      const duration = endTime - startTime;
-      
-      ffmpeg(inputPath)
-        .setStartTime(startTime)
-        .setDuration(duration)
-        .output(outputPath)
-        .on('start', (commandLine) => {
-          console.log('Spawned FFmpeg with command: ' + commandLine);
-        })
-        .on('progress', (progress) => {
-          if (onProgress) {
-            const percent = Math.min(100, Math.round((progress.timemark / duration) * 100));
-            onProgress(percent);
-          }
-        })
-        .on('end', () => {
-          if (onProgress) onProgress(100);
-          resolve();
-        })
-        .on('error', (err) => {
-          reject(err);
-        })
-        .run();
-    });
-  }
-
-  // 删除片段（保留前后两段并合并）
-  async trimRemove(inputPath, outputPath, startTime, endTime, onProgress) {
-    const tempDir = path.join(app.getPath('temp'), 'video-trim-' + Date.now());
-    fs.mkdirSync(tempDir, { recursive: true });
-
-    const part1Path = path.join(tempDir, 'part1.mp4');
-    const part2Path = path.join(tempDir, 'part2.mp4');
-    const listPath = path.join(tempDir, 'list.txt');
-
-    try {
-      // 获取视频总时长
-      const totalDuration = await this.getDuration(inputPath);
-
-      // 提取前段
-      await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
-          .setDuration(startTime)
-          .output(part1Path)
-          .on('progress', (progress) => {
-            if (onProgress) onProgress(Math.min(40, Math.round((progress.percent || 0) * 0.4)));
-          })
-          .on('end', resolve)
-          .on('error', reject)
-          .run();
-      });
-
-      // 提取后段
-      await new Promise((resolve, reject) => {
-        ffmpeg(inputPath)
-          .setStartTime(endTime)
-          .setDuration(totalDuration - endTime)
-          .output(part2Path)
-          .on('progress', (progress) => {
-            if (onProgress) onProgress(40 + Math.min(40, Math.round((progress.percent || 0) * 0.4)));
-          })
-          .on('end', resolve)
-          .on('error', reject)
-          .run();
-      });
-
-      // 创建合并列表
-      fs.writeFileSync(listPath, `file '${part1Path.replace(/'/g, "'\\''")}'\nfile '${part2Path.replace(/'/g, "'\\''")}'`);
-
-      // 合并两段
-      await new Promise((resolve, reject) => {
-        ffmpeg()
-          .input(listPath)
-          .inputOptions(['-f concat', '-safe 0'])
-          .outputOptions('-c copy')
-          .output(outputPath)
-          .on('progress', () => {
-            if (onProgress) onProgress(85);
-          })
-          .on('end', () => {
-            if (onProgress) onProgress(100);
-            resolve();
-          })
-          .on('error', reject)
-          .run();
-      });
-
-    } finally {
-      // 清理临时文件
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (e) {
-        console.error('清理临时文件失败:', e);
-      }
-    }
-  }
-}
-
 // Main
 let mainWindow = null;
 let dbManager;
-let currentProcess = null;
+let activeWorkers = new Map(); // 存储活跃的 worker
 
 async function createWindow() {
   dbManager = new DatabaseManager();
@@ -310,32 +193,54 @@ ipcMain.handle('add-tag', (_, mediaId, tag) => { dbManager.addTag(mediaId, tag);
 ipcMain.handle('remove-tag', (_, mediaId, tag) => { dbManager.removeTag(mediaId, tag); return true; });
 ipcMain.handle('delete-media', (_, mediaId) => { dbManager.deleteMedia(mediaId); return true; });
 
-// 视频剪辑 - 带进度
+// 视频剪辑 - 使用 Worker 线程，不阻塞主线程
 ipcMain.handle('trim-video-start', async (event, { mode, input, output, start, end }) => {
-  try {
-    const processor = new VideoProcessor();
-    const onProgress = (percent) => {
-      if (mainWindow) {
-        mainWindow.webContents.send('trim-progress', { percent, mode });
+  const jobId = Date.now().toString();
+  
+  return new Promise((resolve) => {
+    // 创建 Worker 线程
+    const worker = new Worker(path.join(__dirname, 'videoWorker.js'));
+    activeWorkers.set(jobId, worker);
+
+    worker.on('message', (data) => {
+      if (data.type === 'progress') {
+        if (mainWindow) {
+          mainWindow.webContents.send('trim-progress', { percent: data.percent, mode });
+        }
+      } else if (data.type === 'complete') {
+        activeWorkers.delete(jobId);
+        worker.terminate();
+        
+        if (mainWindow) {
+          mainWindow.webContents.send('trim-complete', data);
+        }
+        resolve(data);
       }
-    };
+    });
 
-    if (mode === 'keep') {
-      await processor.trimKeep(input, output, start, end, onProgress);
-    } else {
-      await processor.trimRemove(input, output, start, end, onProgress);
-    }
+    worker.on('error', (err) => {
+      activeWorkers.delete(jobId);
+      const errorData = { success: false, error: err.message };
+      if (mainWindow) {
+        mainWindow.webContents.send('trim-complete', errorData);
+      }
+      resolve(errorData);
+    });
 
-    if (mainWindow) {
-      mainWindow.webContents.send('trim-complete', { success: true, output });
-    }
-    return { success: true, output };
-  } catch (error) {
-    if (mainWindow) {
-      mainWindow.webContents.send('trim-complete', { success: false, error: error.message });
-    }
-    return { success: false, error: error.message };
+    // 发送任务给 Worker
+    worker.postMessage({ mode, input, output, start, end });
+  });
+});
+
+// 取消剪辑任务
+ipcMain.handle('trim-video-cancel', async (_, jobId) => {
+  const worker = activeWorkers.get(jobId);
+  if (worker) {
+    await worker.terminate();
+    activeWorkers.delete(jobId);
+    return true;
   }
+  return false;
 });
 
 // 选择输出目录
@@ -366,6 +271,14 @@ ipcMain.handle('select-data-dir', async () => {
   });
   if (result.canceled) return null;
   return result.filePaths[0];
+});
+
+// 应用退出时清理所有 Worker
+app.on('before-quit', async () => {
+  for (const [id, worker] of activeWorkers) {
+    await worker.terminate();
+  }
+  activeWorkers.clear();
 });
 
 app.whenReady().then(createWindow).catch(console.error);
