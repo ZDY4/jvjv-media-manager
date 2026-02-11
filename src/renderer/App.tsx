@@ -46,9 +46,14 @@ function App() {
 
   const handleScanFolder = async () => {
     if (!window.electronAPI) return;
-    const newMedia = await window.electronAPI.scanMediaFolder();
-    if (newMedia) {
-      loadMedia();
+    try {
+      const newMedia = await window.electronAPI.scanMediaFolder();
+      if (newMedia) {
+        loadMedia();
+      }
+    } catch (error) {
+      console.error('扫描文件夹失败:', error);
+      alert('扫描文件夹失败: ' + (error as Error).message);
     }
   };
 

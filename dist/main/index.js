@@ -26,7 +26,7 @@ class DatabaseManager {
     } catch (e) { console.error(e); }
   }
   addMedia(media) {
-    const idx = this.data.media.findIndex(m => m.id === media.id);
+    const idx = { media: m.id === media.id };
     if (idx >= 0) this.data.media[idx] = media;
     else this.data.media.push(media);
     this.saveData();
@@ -126,7 +126,7 @@ class VideoProcessor {
     });
   }
   
-  async trimRemove(input) {
+  async trimRemove(input, output, start, end) {
     return new Promise((resolve, reject) => {
       const temp1 = input + '.temp1.mp4';
       const temp2 = input + '.temp2.mp4';
@@ -137,17 +137,17 @@ class VideoProcessor {
         ['-i', temp1, '-i', temp2, '-filter_complex', '[0:v][1:v]concat=v=1:n=2[outv];[0:a][1:a]concat=a=1:n=2[outa]', '-map', '[outv]', '-map', '[outa]', '-y', output]
       ];
       
-      let currentCmd = 0;
+      let current = 0;
       
       const runNext = () => {
-        if (currentCmd >= commands.length) {
+        if (current >= commands.length) {
           try { fs.unlinkSync(temp1); } catch (e) {}
           try { fs.unlinkSync(temp2); } catch (e) {}
           resolve(true);
           return;
         }
         
-        const cmd = commands[currentCmd];
+        const cmd = commands[current];
         const ffmpeg = spawn('ffmpeg', cmd);
         
         let stderr = '';
@@ -155,10 +155,10 @@ class VideoProcessor {
         
         ffmpeg.on('close', (code) => {
           if (code === 0) {
-            currentCmd++;
+            current++;
             runNext();
           } else {
-            reject(new Error('FFmpeg failed at step ' + (currentCmd + 1) + ': ' + stderr));
+            reject(new Error('FFmpeg failed: ' + stderr));
           }
         });
         
@@ -172,16 +172,18 @@ class VideoProcessor {
 
 // Main
 let mainWindow = null;
-let dbManager;
+let dbManager = null;
 
 async function createWindow() {
   dbManager = new DatabaseManager();
   mainWindow = new BrowserWindow({
     width: 1400, height: 900, minWidth: 1000, minHeight: 600,
     webPreferences: {
-      nodeIntegration: false, contextIsolation: true,
+      nodeIntegration: false,
+      contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-    }, show: false,
+    },
+    show: false,
   });
 
   const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
@@ -190,41 +192,90 @@ async function createWindow() {
   } else {
     await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
-  mainWindow.on('closed', () => mainWindow = null);
+  
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+  
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
 
-// IPC
+// IPC handlers
 ipcMain.handle('scan-media-folder', async () => {
-  console.log('scan-media-folder called');
+  console.log('[IPC] scan-media-folder called');
   if (!mainWindow) {
-    console.error('No main window');
+    console.error('[IPC] No main window');
     return null;
   }
-  const result = await dialog.showOpenDialog(mainWindow, {
-    properties: ['openDirectory'], title: '选择媒体文件夹',
-  });
-  console.log('Dialog result:', result);
-  if (result.canceled) return null;
-  const scanner = new MediaScanner();
-  const files = await scanner.scan(result.filePaths[0]);
-  console.log('Scanned files:', files.length);
-  for (const f of files) dbManager.addMedia(f);
-  return files;
+  
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: '选择媒体文件夹',
+    });
+    
+    console.log('[IPC] Dialog result:', result.canceled, result.filePaths);
+    
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
+      return null;
+    }
+    
+    const scanner = new MediaScanner();
+    const files = await scanner.scan(result.filePaths[0]);
+    console.log('[IPC] Scanned', files.length, 'files');
+    
+    for (const f of files) {
+      dbManager.addMedia(f);
+    }
+    
+    return files;
+  } catch (error) {
+    console.error('[IPC] Error in scan-media-folder:', error);
+    throw error;
+  }
 });
-ipcMain.handle('get-all-media', () => dbManager.getAllMedia());
-ipcMain.handle('search-media-by-tags', (_, tags) => dbManager.searchByTags(tags));
-ipcMain.handle('add-tag', (_, mediaId, tag) => { dbManager.addTag(mediaId, tag); return true; });
-ipcMain.handle('remove-tag', (_, mediaId, tag) => { dbManager.removeTag(mediaId, tag); return true; });
-ipcMain.handle('delete-media', (_, mediaId) => { dbManager.deleteMedia(mediaId); return true; });
+
+ipcMain.handle('get-all-media', () => {
+  return dbManager.getAllMedia();
+});
+
+ipcMain.handle('search-media-by-tags', (_, tags) => {
+  return dbManager.searchByTags(tags);
+});
+
+ipcMain.handle('add-tag', (_, mediaId, tag) => {
+  dbManager.addTag(mediaId, tag);
+  return true;
+});
+
+ipcMain.handle('remove-tag', (_, mediaId, tag) => {
+  dbManager.removeTag(mediaId, tag);
+  return true;
+});
+
+ipcMain.handle('delete-media', (_, mediaId) => {
+  dbManager.deleteMedia(mediaId);
+  return true;
+});
+
 ipcMain.handle('trim-video-keep', async (_, input, output, start, end) => {
   await new VideoProcessor().trimKeep(input, output, start, end);
   return true;
 });
+
 ipcMain.handle('trim-video-remove', async (_, input, output, start, end) => {
   await new VideoProcessor().trimRemove(input, output, start, end);
   return true;
 });
 
-app.whenReady().then(createWindow).catch(console.error);
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.whenReady().then(createWindow).catch((err) => {
+  console.error('Failed to create window:', err);
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
