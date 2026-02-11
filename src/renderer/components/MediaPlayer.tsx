@@ -3,12 +3,10 @@ import { MediaFile } from '../../shared/types';
 
 interface MediaPlayerProps {
   media: MediaFile;
-  onClose: () => void;
 }
 
-export const MediaPlayer: React.FC<MediaPlayerProps> = ({ media, onClose }) => {
+export const MediaPlayer: React.FC<MediaPlayerProps> = ({ media }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     if (media.type === 'video' && videoRef.current) {
@@ -17,32 +15,25 @@ export const MediaPlayer: React.FC<MediaPlayerProps> = ({ media, onClose }) => {
   }, [media]);
 
   return (
-    <div className="flex-1 flex flex-col bg-black relative">
-      <div className="flex items-center justify-between p-2 bg-gray-800">
-        <h2 className="text-white truncate flex-1 mr-4">{media.filename}</h2>
-        <button
-          onClick={onClose}
-          className="text-white hover:bg-gray-700 px-3 py-1 rounded"
-        >
-          ✕ 关闭
-        </button>
+    <div className="flex-1 flex flex-col bg-black">
+      <div className="flex items-center p-2 bg-gray-800">
+        <h2 className="text-white truncate flex-1">{media.filename}</h2>
       </div>
       
-      <div className="flex-1 flex items-center justify-center overflow-hidden">
+      <div className="flex-1 flex items-center justify-center overflow-hidden p-4">
         {media.type === 'video' ? (
           <video
             ref={videoRef}
             src={`file://${media.path}`}
             controls
-            className="max-w-full max-h-full"
+            className="max-w-full max-h-full rounded"
             autoPlay
           />
         ) : (
           <img
-            ref={imageRef}
             src={`file://${media.path}`}
             alt={media.filename}
-            className="max-w-full max-h-full object-contain"
+            className="max-w-full max-h-full object-contain rounded"
           />
         )}
       </div>

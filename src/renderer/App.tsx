@@ -9,7 +9,6 @@ import { VideoTrimmer } from './components/VideoTrimmer';
 function App() {
   const [mediaList, setMediaList] = useState<MediaFile[]>([]);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [searchTags, setSearchTags] = useState<string[]>([]);
   const [showTrimmer, setShowTrimmer] = useState(false);
   const [apiReady, setApiReady] = useState(false);
@@ -64,19 +63,17 @@ function App() {
       loadMedia();
       if (selectedMediaId === mediaId) {
         setSelectedMediaId(null);
-        setIsPlaying(false);
       }
     }
   };
 
   const handlePlayMedia = (media: MediaFile) => {
     setSelectedMediaId(media.id);
-    setIsPlaying(true);
   };
 
   return (
     <div className="flex h-screen bg-gray-900">
-      {/* 侧边栏 */}
+      {/* 左侧边栏 */}
       <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
           <h1 className="text-xl font-bold text-white">媒体管理器</h1>
@@ -103,15 +100,31 @@ function App() {
         </div>
       </div>
 
-      {/* 主内容区 */}
+      {/* 中间：媒体列表 */}
+      <div className="w-1/3 border-r border-gray-700 flex flex-col">
+        <div className="p-3 border-b border-gray-700 bg-gray-800">
+          <h2 className="text-white font-medium">媒体库</h2>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <MediaGrid 
+            mediaList={mediaList}
+            selectedId={selectedMediaId}
+            onPlay={handlePlayMedia}
+            onDelete={handleDeleteMedia}
+          />
+        </div>
+      </div>
+
+      {/* 右侧：播放器区域 */}
       <div className="flex-1 flex flex-col">
-        {isPlaying && selectedMedia ? (
-          <div className="flex-1 flex flex-col">
-            <MediaPlayer 
-              media={selectedMedia} 
-              onClose={() => setIsPlaying(false)}
-            />
-            <div className="h-48 bg-gray-800 border-t border-gray-700 p-4">
+        {selectedMedia ? (
+          <>
+            <div className="flex-1 flex flex-col">
+              <MediaPlayer 
+                media={selectedMedia}
+              />
+            </div>
+            <div className="h-48 bg-gray-800 border-t border-gray-700 p-4 overflow-auto">
               <TagManager 
                 media={selectedMedia}
                 onUpdate={loadMedia}
@@ -125,13 +138,14 @@ function App() {
                 </button>
               )}
             </div>
-          </div>
+          </>
         ) : (
-          <MediaGrid 
-            mediaList={mediaList}
-            onPlay={handlePlayMedia}
-            onDelete={handleDeleteMedia}
-          />
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="text-center">
+              <p className="text-4xl mb-4">▶️</p>
+              <p>选择一个媒体文件开始播放</p>
+            </div>
+          </div>
         )}
       </div>
 
