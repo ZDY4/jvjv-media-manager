@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -74,6 +74,10 @@ class DatabaseManager {
   getAllMedia() {
     return this.data.media.map(m => ({ ...m, tags: this.getTags(m.id) }))
       .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  getMediaById(id) {
+    return this.data.media.find(m => m.id === id);
   }
 
   deleteMedia(id) {
@@ -152,7 +156,7 @@ class MediaScanner {
 // Main
 let mainWindow = null;
 let dbManager;
-let activeWorkers = new Map(); // 存储活跃的 worker
+let activeWorkers = new Map();
 
 async function createWindow() {
   dbManager = new DatabaseManager();
@@ -191,14 +195,40 @@ ipcMain.handle('get-all-media', () => dbManager.getAllMedia());
 ipcMain.handle('search-media-by-tags', (_, tags) => dbManager.searchByTags(tags));
 ipcMain.handle('add-tag', (_, mediaId, tag) => { dbManager.addTag(mediaId, tag); return true; });
 ipcMain.handle('remove-tag', (_, mediaId, tag) => { dbManager.removeTag(mediaId, tag); return true; });
-ipcMain.handle('delete-media', (_, mediaId) => { dbManager.deleteMedia(mediaId); return true; });
 
-// 视频剪辑 - 使用 Worker 线程，不阻塞主线程
+// 删除媒体 - 移入回收站
+ipcMain.handle('delete-media', async (_, mediaId) => {
+  try {
+    const media = dbManager.getMediaById(mediaId);
+    if (!media) {
+      return { success: false, error: '媒体不存在' };
+    }
+
+    // 检查文件是否存在
+    if (!fs.existsSync(media.path)) {
+      // 文件已不存在，只删除数据库记录
+      dbManager.deleteMedia(mediaId);
+      return { success: true, message: '已从数据库移除' };
+    }
+
+    // 移入系统回收站
+    await shell.trashItem(media.path);
+    
+    // 从数据库删除记录
+    dbManager.deleteMedia(mediaId);
+    
+    return { success: true, message: '已移入回收站' };
+  } catch (error) {
+    console.error('删除失败:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// 视频剪辑 - 使用 Worker 线程
 ipcMain.handle('trim-video-start', async (event, { mode, input, output, start, end }) => {
   const jobId = Date.now().toString();
   
   return new Promise((resolve) => {
-    // 创建 Worker 线程
     const worker = new Worker(path.join(__dirname, 'videoWorker.js'));
     activeWorkers.set(jobId, worker);
 
@@ -227,12 +257,10 @@ ipcMain.handle('trim-video-start', async (event, { mode, input, output, start, e
       resolve(errorData);
     });
 
-    // 发送任务给 Worker
     worker.postMessage({ mode, input, output, start, end });
   });
 });
 
-// 取消剪辑任务
 ipcMain.handle('trim-video-cancel', async (_, jobId) => {
   const worker = activeWorkers.get(jobId);
   if (worker) {
@@ -243,7 +271,6 @@ ipcMain.handle('trim-video-cancel', async (_, jobId) => {
   return false;
 });
 
-// 选择输出目录
 ipcMain.handle('select-output-dir', async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -253,7 +280,6 @@ ipcMain.handle('select-output-dir', async () => {
   return result.canceled ? null : result.filePaths[0];
 });
 
-// 获取/设置数据目录
 ipcMain.handle('get-data-dir', () => getDefaultDataDir());
 ipcMain.handle('set-data-dir', async (_, dirPath) => {
   const config = getConfig();
@@ -262,7 +288,6 @@ ipcMain.handle('set-data-dir', async (_, dirPath) => {
   return true;
 });
 
-// 选择数据目录
 ipcMain.handle('select-data-dir', async () => {
   if (!mainWindow) return null;
   const result = await dialog.showOpenDialog(mainWindow, {
@@ -273,7 +298,6 @@ ipcMain.handle('select-data-dir', async () => {
   return result.filePaths[0];
 });
 
-// 应用退出时清理所有 Worker
 app.on('before-quit', async () => {
   for (const [id, worker] of activeWorkers) {
     await worker.terminate();

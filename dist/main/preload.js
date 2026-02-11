@@ -10,14 +10,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addTag: (mediaId, tag) => ipcRenderer.invoke('add-tag', mediaId, tag),
   removeTag: (mediaId, tag) => ipcRenderer.invoke('remove-tag', mediaId, tag),
   
-  // 删除媒体
+  // 删除媒体（移入回收站）
   deleteMedia: (mediaId) => ipcRenderer.invoke('delete-media', mediaId),
   
-  // 视频剪辑（新版）
+  // 视频剪辑
   trimVideoStart: (params) => ipcRenderer.invoke('trim-video-start', params),
   selectOutputDir: () => ipcRenderer.invoke('select-output-dir'),
-  
-  // 监听剪辑进度
   onTrimProgress: (callback) => ipcRenderer.on('trim-progress', (_, data) => callback(data)),
   onTrimComplete: (callback) => ipcRenderer.on('trim-complete', (_, data) => callback(data)),
   
