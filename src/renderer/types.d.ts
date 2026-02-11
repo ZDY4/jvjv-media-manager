@@ -9,8 +9,18 @@ declare global {
       addTag: (mediaId: string, tag: string) => Promise<boolean>;
       removeTag: (mediaId: string, tag: string) => Promise<boolean>;
       deleteMedia: (mediaId: string) => Promise<boolean>;
-      trimVideoKeep: (input: string, output: string, start: number, end: number) => Promise<boolean>;
-      trimVideoRemove: (input: string, output: string, start: number, end: number) => Promise<boolean>;
+      
+      // 视频剪辑（新版）
+      trimVideoStart: (params: {
+        mode: 'keep' | 'remove';
+        input: string;
+        output: string;
+        start: number;
+        end: number;
+      }) => Promise<{ success: boolean; output?: string; error?: string }>;
+      selectOutputDir: () => Promise<string | null>;
+      onTrimProgress: (callback: (data: { percent: number; mode: string }) => void) => void;
+      onTrimComplete: (callback: (data: { success: boolean; output?: string; error?: string }) => void) => void;
       
       // 数据目录管理
       getDataDir: () => Promise<string>;
