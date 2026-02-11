@@ -5,12 +5,14 @@ import { MediaPlayer } from './components/MediaPlayer';
 import { TagManager } from './components/TagManager';
 import { SearchBar } from './components/SearchBar';
 import { VideoTrimmer } from './components/VideoTrimmer';
+import { DataDirSetting } from './components/DataDirSetting';
 
 function App() {
   const [mediaList, setMediaList] = useState<MediaFile[]>([]);
   const [selectedMediaId, setSelectedMediaId] = useState<string | null>(null);
   const [searchTags, setSearchTags] = useState<string[]>([]);
   const [showTrimmer, setShowTrimmer] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [apiReady, setApiReady] = useState(false);
 
   const selectedMedia = mediaList.find(m => m.id === selectedMediaId) || null;
@@ -71,6 +73,11 @@ function App() {
     setSelectedMediaId(media.id);
   };
 
+  const handleDataDirChanged = () => {
+    // 数据目录改变后重新加载
+    loadMedia();
+  };
+
   return (
     <div className="flex h-screen bg-gray-900">
       {/* 左侧边栏 */}
@@ -95,8 +102,16 @@ function App() {
           />
         </div>
 
-        <div className="p-4 border-t border-gray-700 text-sm text-gray-400">
-          共 {mediaList.length} 个文件
+        <div className="p-4 border-t border-gray-700 space-y-2">
+          <div className="text-sm text-gray-400">
+            共 {mediaList.length} 个文件
+          </div>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="w-full text-left text-sm text-gray-400 hover:text-white py-1"
+          >
+            ⚙️ 设置数据目录
+          </button>
         </div>
       </div>
 
@@ -148,6 +163,14 @@ function App() {
           </div>
         )}
       </div>
+
+      {/* 设置对话框 */}
+      {showSettings && (
+        <DataDirSetting
+          onClose={() => setShowSettings(false)}
+          onDataDirChanged={handleDataDirChanged}
+        />
+      )}
 
       {/* 剪辑对话框 */}
       {showTrimmer && selectedMedia && (

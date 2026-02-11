@@ -2,14 +2,52 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
+
+// 配置管理
+const CONFIG_FILE = 'config.json';
+
+function getConfig() {
+  const configPath = path.join(process.cwd(), CONFIG_FILE);
+  try {
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+    }
+  } catch (e) {
+    console.error('读取配置失败:', e);
+  }
+  return {};
+}
+
+function saveConfig(config) {
+  const configPath = path.join(process.cwd(), CONFIG_FILE);
+  try {
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  } catch (e) {
+    console.error('保存配置失败:', e);
+  }
+}
+
+function getDefaultDataDir() {
+  const config = getConfig();
+  // 优先使用配置中的路径
+  if (config.dataDir) {
+    return config.dataDir;
+  }
+  // 默认使用项目目录
+  return process.cwd();
+}
 
 // Database
 class DatabaseManager {
   constructor() {
-    this.dbPath = path.join(app.getPath('userData'), 'db.json');
+    const dataDir = getDefaultDataDir();
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    this.dbPath = path.join(dataDir, 'db.json');
     this.data = this.loadData();
   }
+
   loadData() {
     try {
       if (fs.existsSync(this.dbPath)) {
@@ -18,6 +56,7 @@ class DatabaseManager {
     } catch (e) { console.error(e); }
     return { media: [], tags: [] };
   }
+
   saveData() {
     try {
       const dir = path.dirname(this.dbPath);
@@ -25,34 +64,41 @@ class DatabaseManager {
       fs.writeFileSync(this.dbPath, JSON.stringify(this.data, null, 2));
     } catch (e) { console.error(e); }
   }
+
   addMedia(media) {
-    const idx = { media: m.id === media.id };
+    const idx = this.data.media.findIndex(m => m.id === media.id);
     if (idx >= 0) this.data.media[idx] = media;
     else this.data.media.push(media);
     this.saveData();
   }
+
   getAllMedia() {
     return this.data.media.map(m => ({ ...m, tags: this.getTags(m.id) }))
       .sort((a, b) => b.createdAt - a.createdAt);
   }
+
   deleteMedia(id) {
     this.data.media = this.data.media.filter(m => m.id !== id);
     this.data.tags = this.data.tags.filter(t => t.mediaId !== id);
     this.saveData();
   }
+
   addTag(mediaId, tag) {
     if (!this.data.tags.find(t => t.mediaId === mediaId && t.tag === tag)) {
       this.data.tags.push({ mediaId, tag });
       this.saveData();
     }
   }
+
   removeTag(mediaId, tag) {
     this.data.tags = this.data.tags.filter(t => !(t.mediaId === mediaId && t.tag === tag));
     this.saveData();
   }
+
   getTags(mediaId) {
     return this.data.tags.filter(t => t.mediaId === mediaId).map(t => t.tag).sort();
   }
+
   searchByTags(tags) {
     if (tags.length === 0) return this.getAllMedia();
     const ids = new Set();
@@ -75,6 +121,7 @@ class MediaScanner {
     await this.scanDir(folderPath, results);
     return results;
   }
+
   async scanDir(dirPath, results) {
     for (const entry of fs.readdirSync(dirPath, { withFileTypes: true })) {
       const fullPath = path.join(dirPath, entry.name);
@@ -85,6 +132,7 @@ class MediaScanner {
       }
     }
   }
+
   processFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     const stats = fs.statSync(filePath);
@@ -92,6 +140,7 @@ class MediaScanner {
     if (VIDEO_EXT.includes(ext)) type = 'video';
     else if (IMAGE_EXT.includes(ext)) type = 'image';
     if (!type) return null;
+
     return {
       id: crypto.createHash('md5').update(filePath).digest('hex'),
       path: filePath, filename: path.basename(filePath), type,
@@ -104,178 +153,82 @@ class MediaScanner {
 // Video Processor
 class VideoProcessor {
   async trimKeep(input, output, start, end) {
-    return new Promise((resolve, reject) => {
-      const ffmpeg = spawn('ffmpeg', [
-        '-i', input,
-        '-ss', String(start),
-        '-to', String(end - start),
-        '-c', 'copy',
-        '-y',
-        output
-      ]);
-      
-      let stderr = '';
-      ffmpeg.stderr.on('data', (data) => { stderr += data; });
-      
-      ffmpeg.on('close', (code) => {
-        if (code === 0) resolve(true);
-        else reject(new Error('FFmpeg failed: ' + stderr));
-      });
-      
-      ffmpeg.on('error', reject);
-    });
+    throw new Error('Video trim not implemented');
   }
-  
   async trimRemove(input, output, start, end) {
-    return new Promise((resolve, reject) => {
-      const temp1 = input + '.temp1.mp4';
-      const temp2 = input + '.temp2.mp4';
-      
-      const commands = [
-        ['-i', input, '-to', String(start), '-c', 'copy', '-y', temp1],
-        ['-i', input, '-ss', String(end), '-c', 'copy', '-y', temp2],
-        ['-i', temp1, '-i', temp2, '-filter_complex', '[0:v][1:v]concat=v=1:n=2[outv];[0:a][1:a]concat=a=1:n=2[outa]', '-map', '[outv]', '-map', '[outa]', '-y', output]
-      ];
-      
-      let current = 0;
-      
-      const runNext = () => {
-        if (current >= commands.length) {
-          try { fs.unlinkSync(temp1); } catch (e) {}
-          try { fs.unlinkSync(temp2); } catch (e) {}
-          resolve(true);
-          return;
-        }
-        
-        const cmd = commands[current];
-        const ffmpeg = spawn('ffmpeg', cmd);
-        
-        let stderr = '';
-        ffmpeg.stderr.on('data', (data) => { stderr += data; });
-        
-        ffmpeg.on('close', (code) => {
-          if (code === 0) {
-            current++;
-            runNext();
-          } else {
-            reject(new Error('FFmpeg failed: ' + stderr));
-          }
-        });
-        
-        ffmpeg.on('error', reject);
-      };
-      
-      runNext();
-    });
+    throw new Error('Video trim not implemented');
   }
 }
 
 // Main
 let mainWindow = null;
-let dbManager = null;
+let dbManager;
 
 async function createWindow() {
   dbManager = new DatabaseManager();
   mainWindow = new BrowserWindow({
     width: 1400, height: 900, minWidth: 1000, minHeight: 600,
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
+      nodeIntegration: false, contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-    },
-    show: false,
+    }, show: false,
   });
 
-  const isDev = process.env.NODE_ENV === 'development' || process.argv.includes('--dev');
+  const isDev = process.argv.includes('--dev');
   if (isDev) {
     await mainWindow.loadURL('http://localhost:5173');
   } else {
     await mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
   }
-  
-  mainWindow.once('ready-to-show', () => {
-    mainWindow?.show();
-  });
-  
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  mainWindow.on('closed', () => mainWindow = null);
 }
 
-// IPC handlers
+// IPC
 ipcMain.handle('scan-media-folder', async () => {
-  console.log('[IPC] scan-media-folder called');
-  if (!mainWindow) {
-    console.error('[IPC] No main window');
-    return null;
-  }
-  
-  try {
-    const result = await dialog.showOpenDialog(mainWindow, {
-      properties: ['openDirectory'],
-      title: '选择媒体文件夹',
-    });
-    
-    console.log('[IPC] Dialog result:', result.canceled, result.filePaths);
-    
-    if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
-      return null;
-    }
-    
-    const scanner = new MediaScanner();
-    const files = await scanner.scan(result.filePaths[0]);
-    console.log('[IPC] Scanned', files.length, 'files');
-    
-    for (const f of files) {
-      dbManager.addMedia(f);
-    }
-    
-    return files;
-  } catch (error) {
-    console.error('[IPC] Error in scan-media-folder:', error);
-    throw error;
-  }
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'], title: '选择媒体文件夹',
+  });
+  if (result.canceled) return null;
+  const scanner = new MediaScanner();
+  const files = await scanner.scan(result.filePaths[0]);
+  for (const f of files) dbManager.addMedia(f);
+  return files;
 });
 
-ipcMain.handle('get-all-media', () => {
-  return dbManager.getAllMedia();
-});
-
-ipcMain.handle('search-media-by-tags', (_, tags) => {
-  return dbManager.searchByTags(tags);
-});
-
-ipcMain.handle('add-tag', (_, mediaId, tag) => {
-  dbManager.addTag(mediaId, tag);
-  return true;
-});
-
-ipcMain.handle('remove-tag', (_, mediaId, tag) => {
-  dbManager.removeTag(mediaId, tag);
-  return true;
-});
-
-ipcMain.handle('delete-media', (_, mediaId) => {
-  dbManager.deleteMedia(mediaId);
-  return true;
-});
+ipcMain.handle('get-all-media', () => dbManager.getAllMedia());
+ipcMain.handle('search-media-by-tags', (_, tags) => dbManager.searchByTags(tags));
+ipcMain.handle('add-tag', (_, mediaId, tag) => { dbManager.addTag(mediaId, tag); return true; });
+ipcMain.handle('remove-tag', (_, mediaId, tag) => { dbManager.removeTag(mediaId, tag); return true; });
+ipcMain.handle('delete-media', (_, mediaId) => { dbManager.deleteMedia(mediaId); return true; });
 
 ipcMain.handle('trim-video-keep', async (_, input, output, start, end) => {
-  await new VideoProcessor().trimKeep(input, output, start, end);
-  return true;
+  await new VideoProcessor().trimKeep(input, output, start, end); return true;
 });
-
 ipcMain.handle('trim-video-remove', async (_, input, output, start, end) => {
-  await new VideoProcessor().trimRemove(input, output, start, end);
+  await new VideoProcessor().trimRemove(input, output, start, end); return true;
+});
+
+// 获取/设置数据目录
+ipcMain.handle('get-data-dir', () => getDefaultDataDir());
+ipcMain.handle('set-data-dir', async (_, dirPath) => {
+  const config = getConfig();
+  config.dataDir = dirPath;
+  saveConfig(config);
   return true;
 });
 
-app.whenReady().then(createWindow).catch((err) => {
-  console.error('Failed to create window:', err);
+// 选择数据目录
+ipcMain.handle('select-data-dir', async () => {
+  if (!mainWindow) return null;
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+    title: '选择数据存储目录',
+  });
+  if (result.canceled) return null;
+  return result.filePaths[0];
 });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
+app.whenReady().then(createWindow).catch(console.error);
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
