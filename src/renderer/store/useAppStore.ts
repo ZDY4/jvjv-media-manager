@@ -80,6 +80,7 @@ export const useAppStore = create<AppState>()(
       name: 'app-storage', // unique name
       partialize: (state) => ({ 
         viewMode: state.viewMode,
+        iconSize: state.iconSize,
         watchedFolders: state.watchedFolders,
         // Don't persist ephemeral state like progress, modal open state, etc.
       }),

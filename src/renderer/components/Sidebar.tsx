@@ -297,7 +297,19 @@ export const Sidebar: React.FC = () => {
             </span>
 
             {viewMode === 'grid' && (
-              <span className="text-xs text-gray-400">{iconSize}px</span>
+              <>
+                <span className="text-xs text-gray-400">{iconSize}px</span>
+                <input
+                  type="range"
+                  min={80}
+                  max={240}
+                  step={10}
+                  value={iconSize}
+                  onChange={(e) => setIconSize(Number(e.target.value))}
+                  className="w-24 accent-[#005FB8]"
+                  title="缩放图标大小"
+                />
+              </>
             )}
 
             <div className="flex bg-[#3D3D3D] rounded-lg p-0.5">

@@ -12,7 +12,11 @@ export const useAppInit = () => {
     setShowSettings,
     setIsSidebarDetached,
     setSidebarVisible,
-    isSidebarDetached
+    isSidebarDetached,
+    viewMode,
+    iconSize,
+    setViewMode,
+    setIconSize
   } = useAppStore();
 
   const {
@@ -128,8 +132,10 @@ export const useAppInit = () => {
     window.electronAPI.syncPlaylistData({
       mediaList: filteredMediaList,
       selectedId: lastSelectedId,
+      viewMode,
+      iconSize,
     });
-  }, [filteredMediaList, lastSelectedId, isSidebarDetached]);
+  }, [filteredMediaList, lastSelectedId, isSidebarDetached, viewMode, iconSize]);
 
   // Playlist Action Listener
   useEffect(() => {
@@ -145,11 +151,23 @@ export const useAppInit = () => {
           }
           break;
         }
+        case 'setViewMode': {
+          const mode = (action.payload as { viewMode?: 'list' | 'grid' })?.viewMode;
+          if (mode === 'list' || mode === 'grid') setViewMode(mode);
+          break;
+        }
+        case 'setIconSize': {
+          const size = (action.payload as { iconSize?: number })?.iconSize;
+          if (typeof size === 'number') setIconSize(size);
+          break;
+        }
         case 'ready': {
           if (window.electronAPI?.syncPlaylistData) {
             window.electronAPI.syncPlaylistData({
               mediaList: filteredMediaList,
               selectedId: lastSelectedId,
+              viewMode,
+              iconSize,
             });
           }
           break;
@@ -160,5 +178,14 @@ export const useAppInit = () => {
     return () => {
       unsubscribe();
     };
-  }, [filteredMediaList, lastSelectedId, setLastSelectedId, setSelectedMediaIds]);
+  }, [
+    filteredMediaList,
+    lastSelectedId,
+    setLastSelectedId,
+    setSelectedMediaIds,
+    viewMode,
+    iconSize,
+    setViewMode,
+    setIconSize,
+  ]);
 };

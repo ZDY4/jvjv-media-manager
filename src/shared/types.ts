@@ -78,12 +78,19 @@ export interface ElectronAPI {
   syncPlaylistData: (data: {
     mediaList: MediaFile[];
     selectedId: string | null;
+    viewMode?: 'list' | 'grid';
+    iconSize?: number;
   }) => Promise<boolean>;
   onPlaylistAction: (callback: (action: { type: string; payload?: unknown }) => void) => () => void;
 
   // 播放列表窗口专用 API
   onPlaylistDataSync: (
-    callback: (data: { mediaList: MediaFile[]; selectedId: string | null }) => void
+    callback: (data: {
+      mediaList: MediaFile[];
+      selectedId: string | null;
+      viewMode?: 'list' | 'grid';
+      iconSize?: number;
+    }) => void
   ) => () => void;
   sendPlaylistAction: (action: { type: string; payload?: unknown }) => void;
 

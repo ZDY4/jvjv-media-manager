@@ -96,7 +96,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners('playlist-window-closed');
     };
   },
-  syncPlaylistData: (data: { mediaList: MediaFile[]; selectedId: string | null }) =>
+  syncPlaylistData: (data: {
+    mediaList: MediaFile[];
+    selectedId: string | null;
+    viewMode?: 'list' | 'grid';
+    iconSize?: number;
+  }) =>
     ipcRenderer.invoke('sync-playlist-data', data),
   onPlaylistAction: (callback: (action: { type: string; payload?: unknown }) => void) => {
     ipcRenderer.removeAllListeners('playlist-action');
@@ -108,7 +113,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 播放列表窗口专用 API
   onPlaylistDataSync: (
-    callback: (data: { mediaList: MediaFile[]; selectedId: string | null }) => void
+    callback: (data: {
+      mediaList: MediaFile[];
+      selectedId: string | null;
+      viewMode?: 'list' | 'grid';
+      iconSize?: number;
+    }) => void
   ) => {
     ipcRenderer.removeAllListeners('sync-playlist-data');
     ipcRenderer.on('sync-playlist-data', (_, data) => callback(data));

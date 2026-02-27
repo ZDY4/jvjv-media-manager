@@ -35,6 +35,7 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
   onRemoveFromPlaylist,
   viewMode = 'list',
   iconSize = 120,
+  onIconSizeChange,
 }) => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
@@ -118,6 +119,28 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
   const handleMouseLeave = () => {
     setShowTooltip(false);
   };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return undefined;
+    if (viewMode !== 'grid') return undefined;
+    if (!onIconSizeChange) return undefined;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+
+      const step = 10;
+      const delta = e.deltaY < 0 ? step : -step;
+      const next = Math.min(240, Math.max(80, iconSize + delta));
+      if (next !== iconSize) onIconSizeChange(next);
+    };
+
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, [iconSize, onIconSizeChange, viewMode]);
 
   // 列表视图
   if (viewMode === 'list') {
@@ -229,7 +252,6 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
     );
   }
 
-  // 网格视图 - 使用虚拟滚动
   return (
     <>
       <div
