@@ -8,11 +8,13 @@ dist/
 release/
 build/
 *.tsbuildinfo
+coverage/
 
 # Environment
 .env
 .env.local
 .env.*.local
+.env.*
 
 # IDE
 .vscode/
@@ -41,3 +43,10 @@ out/
 # FFmpeg
 ffmpeg.exe
 ffprobe.exe
+
+# Temp / local artifacts
+*.tmp
+*.tmp.*
+*.bak
+src/npm-cache/
+nul
