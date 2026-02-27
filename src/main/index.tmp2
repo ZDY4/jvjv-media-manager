@@ -1,0 +1,30 @@
+import { DatabaseManager } from './db/databaseManager';
+// Main
+let mainWindow: BrowserWindow | null = null;
+let playlistWindow: BrowserWindow | null = null;
+let dbManager: DatabaseManager;
+const activeWorkers = new Map<string, Worker>();
+
+async function createWindow(): Promise<void> {
+  console.log('[Main] __dirname:', __dirname);
+  console.log('[Main] preload path:', path.resolve(__dirname, 'preload.js'));
+  console.log('[Main] preload exists:', fs.existsSync(path.resolve(__dirname, 'preload.js')));
+
+  const isDev = process.argv.includes('--dev');
+
+  const dataDir = getDefaultDataDir();
+  dbManager = new DatabaseManager(dataDir);
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1000,
+    minHeight: 600,
+    center: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.resolve(__dirname, 'preload.js'),
+      webSecurity: !isDev, // 开发模式下禁用安全策略以加载本地文件
+    },
+    show: true,
+  });

@@ -1,4 +1,5 @@
 @echo off
-chcp 65001
-echo 正在启动媒体管理器...
+echo [Start] Starting Media Manager...
+cd /d "%~dp0"
 npm run dev
+pause

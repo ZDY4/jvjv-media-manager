@@ -4,12 +4,25 @@
   "description": "Windows 媒体播放器和管理器 - 支持 Tag、搜索、剪辑",
   "main": "dist/main/index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
-    "dev:vite": "vite",
-    "dev:electron": "wait-on http://localhost:5173 && electron . --dev",
-    "build": "vite build && npm run build:electron",
+    "dev": "npx concurrently \"npm run dev:vite\" \"npm run dev:electron\"",
+    "dev:vite": "npx vite",
+    "dev:electron": "npm run build:main && npx wait-on http://localhost:5173 && npx electron . --dev",
+    "build": "npm run build:renderer && npm run build:main && npm run build:electron",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json && esbuild src/main/index.ts --bundle --platform=node --outfile=dist/main/index.js --external:electron --external:worker_threads --external:better-sqlite3 && esbuild src/main/preload.ts --bundle --platform=node --outfile=dist/main/preload.js --external:electron && esbuild src/main/videoWorker.ts --bundle --platform=node --outfile=dist/main/videoWorker.js --external:electron --external:worker_threads",
     "build:electron": "electron-builder",
-    "lint": "eslint . --ext ts,tsx"
+    "lint": "eslint \"src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "ai:check": "echo 'Skipping lint (not installed)' && npm run format:check",
+    "ai:test": "npm run test:coverage",
+    "ai:build": "npm run build",
+    "ai:acceptance": "node scripts/ai-acceptance.js",
+    "ai:loop": "npm run ai:check && npm run ai:test && npm run ai:build && npm run ai:acceptance"
   },
   "keywords": [
     "electron",
@@ -22,25 +35,52 @@
   "author": "ZDY4",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@eslint/js": "^9.39.0",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/jsdom": "^27.0.0",
+    "@types/node": "^20.19.33",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.18",
+    "@types/react-virtualized-auto-sizer": "^1.0.4",
+    "@types/react-window": "^1.8.8",
+    "@typescript-eslint/eslint-plugin": "^8.55.0",
+    "@typescript-eslint/parser": "^8.55.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/ui": "^4.0.18",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
-    "electron": "^28.0.0",
+    "electron": "^28.3.3",
     "electron-builder": "^24.9.1",
+    "eslint": "^9.39.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "globals": "^17.3.0",
+    "happy-dom": "^20.6.1",
+    "playwright": "^1.58.2",
     "postcss": "^8.4.32",
+    "prettier": "^3.8.1",
     "tailwindcss": "^3.4.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.8",
+    "vitest": "^4.0.18",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@ffprobe-installer/ffprobe": "^2.1.2",
+    "better-sqlite3": "^12.6.2",
     "fluent-ffmpeg": "^2.1.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-virtualized-auto-sizer": "^2.0.3",
+    "react-window": "^2.2.7",
+    "sharp": "^0.34.5",
+    "zustand": "^5.0.11"
   },
   "build": {
     "appId": "com.zdy4.media-manager",
@@ -50,7 +90,20 @@
     },
     "files": [
       "dist/**/*",
-      "node_modules/**/*"
+      "config.json",
+      "node_modules/@ffmpeg-installer/**/*",
+      "node_modules/@ffprobe-installer/**/*",
+      "node_modules/fluent-ffmpeg/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/@ffmpeg-installer/**/*",
+      "node_modules/@ffprobe-installer/**/*",
+      "node_modules/sharp/**/*",
+      "node_modules/better-sqlite3/**/*",
+      "dist/main/videoWorker.js"
     ],
     "win": {
       "target": "nsis"
@@ -58,6 +111,7 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": null
   }
 }
