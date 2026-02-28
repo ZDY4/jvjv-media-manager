@@ -1,5 +1,6 @@
 import React, { useState, useEffect, forwardRef } from 'react';
-import { MediaPlayer, MediaPlayerRef } from './MediaPlayer';
+import { VideoPlayer, VideoPlayerRef } from './VideoPlayer';
+import { ImageViewer } from './ImageViewer';
 import { useAppStore } from '../store/useAppStore';
 import { useMediaStore } from '../store/useMediaStore';
 import { usePlayerActions } from '../hooks/usePlayerActions';
@@ -7,7 +8,7 @@ import { useMediaActions } from '../hooks/useMediaActions';
 
 type PlayerAreaProps = object;
 
-export const PlayerArea = forwardRef<MediaPlayerRef, PlayerAreaProps>((_props, ref) => {
+export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, ref) => {
   const {
     sidebarPinned,
     sidebarWidth,
@@ -15,24 +16,14 @@ export const PlayerArea = forwardRef<MediaPlayerRef, PlayerAreaProps>((_props, r
     playMode,
     setTagEditorOpen,
     setEditingMedias,
-    setShowTrimmer
+    setShowTrimmer,
   } = useAppStore();
 
-  const {
-    lastSelectedId,
-    filteredMediaList
-  } = useMediaStore();
+  const { lastSelectedId, filteredMediaList } = useMediaStore();
 
-  const {
-    handleNextMedia,
-    handlePreviousMedia,
-    togglePlayMode
-  } = usePlayerActions();
+  const { handleNextMedia, handlePreviousMedia, togglePlayMode } = usePlayerActions();
 
-  const {
-    handleOpenMediaFolder,
-    handleDeleteMedia
-  } = useMediaActions();
+  const { handleOpenMediaFolder, handleDeleteMedia } = useMediaActions();
 
   const selectedMedia = lastSelectedId
     ? filteredMediaList.find(m => m.id === lastSelectedId) || null
@@ -114,20 +105,25 @@ export const PlayerArea = forwardRef<MediaPlayerRef, PlayerAreaProps>((_props, r
           </div>
 
           <div className="flex-1 flex flex-col min-h-0">
-            <MediaPlayer
-              media={selectedMedia}
-              ref={ref}
-              onEnded={handleNextMedia}
-              onPrevious={handlePreviousMedia}
-              onNext={handleNextMedia}
-              onEditTags={onEditTags}
-              onTrimVideo={
-                selectedMedia.type === 'video' ? () => setShowTrimmer(true) : undefined
-              }
-              playMode={playMode}
-              onTogglePlayMode={togglePlayMode}
-              onContextMenu={handleContextMenu}
-            />
+            {selectedMedia.type === 'video' ? (
+              <VideoPlayer
+                ref={ref}
+                media={selectedMedia}
+                onEnded={handleNextMedia}
+                onPrevious={handlePreviousMedia}
+                onNext={handleNextMedia}
+                playMode={playMode}
+                onTogglePlayMode={togglePlayMode}
+                onContextMenu={handleContextMenu}
+              />
+            ) : (
+              <ImageViewer
+                media={selectedMedia}
+                onPrevious={handlePreviousMedia}
+                onNext={handleNextMedia}
+                onContextMenu={handleContextMenu}
+              />
+            )}
           </div>
 
           {/* Context Menu */}

@@ -10444,7 +10444,8 @@ async function createMainWindow(isDev) {
     minWidth: 1e3,
     minHeight: 600,
     center: true,
-    frame: false,
+    frame: true,
+    // 临时启用边框以便调试
     backgroundColor: "#202020",
     webPreferences: {
       nodeIntegration: false,
@@ -10469,6 +10470,11 @@ async function createMainWindow(isDev) {
     if (!mainWindow.isVisible()) {
       mainWindow.show();
     }
+    mainWindow.center();
+    if (!mainWindow.isMaximized()) {
+      mainWindow.maximize();
+    }
+    console.log("[Main] Window shown and maximized");
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -11362,8 +11368,19 @@ function initializeFfmpeg() {
 import_electron11.app.whenReady().then(async () => {
   initializeFfmpeg();
   registerProtocols();
-  const dbManager = new DatabaseManager(getDefaultDataDir());
-  registerAllHandlers(dbManager);
+  let dbManager = null;
+  try {
+    dbManager = new DatabaseManager(getDefaultDataDir());
+    console.log("[Main] Database initialized successfully");
+  } catch (error) {
+    console.error("[Main] Database initialization failed:", error);
+    console.log("[Main] Continuing without database - some features may not work");
+  }
+  if (dbManager) {
+    registerAllHandlers(dbManager);
+  } else {
+    console.warn("[Main] Skipping IPC handlers registration - no database");
+  }
   const isDev = process.argv.includes("--dev");
   const mainWindow2 = await createMainWindow(isDev);
   createApplicationMenu(mainWindow2);

@@ -2,26 +2,24 @@ import { useRef, useEffect, useState, forwardRef, useImperativeHandle } from 're
 import type { MediaFile } from '../../shared/types';
 import { getMediaUrl } from '../utils/mediaUrl';
 
-export interface MediaPlayerRef {
+export interface VideoPlayerRef {
   play: () => void;
   pause: () => void;
   seek: (seconds: number) => void;
   togglePlayPause: () => void;
 }
 
-export interface MediaPlayerProps {
+export interface VideoPlayerProps {
   media: MediaFile;
   onEnded?: () => void;
   onPrevious?: () => void;
   onNext?: () => void;
-  onEditTags?: () => void;
-  onTrimVideo?: () => void;
   playMode?: 'list' | 'single' | 'random';
   onTogglePlayMode?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
+export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
   ({ media, onEnded, onContextMenu, playMode, onTogglePlayMode }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
@@ -59,7 +57,7 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
     }));
 
     useEffect(() => {
-      if (media.type === 'video' && videoRef.current) {
+      if (videoRef.current) {
         videoRef.current.play();
       }
     }, [media]);
@@ -158,7 +156,6 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
     const getPlayModeIcon = () => {
       switch (playMode) {
         case 'single':
-          // 单曲循环：带循环箭头的数字 1
           return (
             <svg
               className="w-4 h-4"
@@ -185,7 +182,6 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
             </svg>
           );
         case 'random':
-          // 随机播放：交叉箭头
           return (
             <svg
               className="w-4 h-4"
@@ -202,7 +198,6 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
             </svg>
           );
         default:
-          // 列表循环：简单循环箭头
           return (
             <svg
               className="w-4 h-4"
@@ -246,32 +241,20 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
           }}
           onDoubleClick={togglePlay}
         >
-          {media.type === 'video' ? (
-            <video
-              ref={videoRef}
-              src={getMediaUrl(media.path)}
-              className="rounded max-w-full max-h-full"
-              style={{
-                objectFit: 'contain',
-              }}
-              autoPlay
-              onEnded={onEnded}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              onPlay={handlePlay}
-              onPause={handlePause}
-            />
-          ) : (
-            <img
-              src={getMediaUrl(media.path)}
-              alt={media.filename}
-              className="max-w-full max-h-full object-contain rounded"
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-              }}
-            />
-          )}
+          <video
+            ref={videoRef}
+            src={getMediaUrl(media.path)}
+            className="rounded max-w-full max-h-full"
+            style={{
+              objectFit: 'contain',
+            }}
+            autoPlay
+            onEnded={onEnded}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+            onPlay={handlePlay}
+            onPause={handlePause}
+          />
 
           {/* 中央播放/暂停图标 */}
           {showCenterIcon && (
@@ -292,7 +275,7 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
           )}
         </div>
 
-        {/* 底部控制条 - 固定在播放窗口底部 */}
+        {/* 底部控制条 */}
         <div
           className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-black/50 px-4 py-3 transition-opacity duration-300 ${
             showControls ? 'opacity-100' : 'opacity-0'
@@ -427,4 +410,4 @@ export const MediaPlayer = forwardRef<MediaPlayerRef, MediaPlayerProps>(
   }
 );
 
-MediaPlayer.displayName = 'MediaPlayer';
+VideoPlayer.displayName = 'VideoPlayer';

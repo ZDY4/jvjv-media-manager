@@ -20,7 +20,7 @@ export async function createMainWindow(isDev: boolean): Promise<BrowserWindow> {
     minWidth: 1000,
     minHeight: 600,
     center: true,
-    frame: false,
+    frame: true, // 临时启用边框以便调试
     backgroundColor: '#202020',
     webPreferences: {
       nodeIntegration: false,
@@ -48,6 +48,12 @@ export async function createMainWindow(isDev: boolean): Promise<BrowserWindow> {
     if (!mainWindow.isVisible()) {
       mainWindow.show();
     }
+    // 确保窗口在屏幕中央并最大化
+    mainWindow.center();
+    if (!mainWindow.isMaximized()) {
+      mainWindow.maximize();
+    }
+    console.log('[Main] Window shown and maximized');
   });
 
   mainWindow.on('closed', () => {

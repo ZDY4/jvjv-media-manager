@@ -18,36 +18,50 @@ function initializeFfmpeg() {
   ffmpeg.setFfprobePath(getFfprobePath());
 }
 
-app.whenReady().then(async () => {
-  initializeFfmpeg();
+app
+  .whenReady()
+  .then(async () => {
+    initializeFfmpeg();
 
-  // Register custom protocols
-  registerProtocols();
+    // Register custom protocols
+    registerProtocols();
 
-  // Initialize Database
-  const dbManager = new DatabaseManager(getDefaultDataDir());
+    // Initialize Database (with error handling)
+    let dbManager: DatabaseManager | null = null;
+    try {
+      dbManager = new DatabaseManager(getDefaultDataDir());
+      console.log('[Main] Database initialized successfully');
+    } catch (error) {
+      console.error('[Main] Database initialization failed:', error);
+      console.log('[Main] Continuing without database - some features may not work');
+    }
 
-  // Register IPC Handlers
-  registerAllHandlers(dbManager);
+    // Register IPC Handlers
+    if (dbManager) {
+      registerAllHandlers(dbManager);
+    } else {
+      console.warn('[Main] Skipping IPC handlers registration - no database');
+    }
 
-  // Create Main Window
-  const isDev = process.argv.includes('--dev');
-  const mainWindow = await createMainWindow(isDev);
+    // Create Main Window
+    const isDev = process.argv.includes('--dev');
+    const mainWindow = await createMainWindow(isDev);
 
-  // Create Menu
-  createApplicationMenu(mainWindow);
+    // Create Menu
+    createApplicationMenu(mainWindow);
 
-  // Error handling & Logging
-  mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
-    console.error('[Main] Preload error:', preloadPath, error);
-  });
-  
-  mainWindow.webContents.on('console-message', (_event, level, message) => {
-    console.log(`[Renderer:${level}] ${message}`);
-  });
-  
-  console.log('[Main] App initialized');
-}).catch(console.error);
+    // Error handling & Logging
+    mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+      console.error('[Main] Preload error:', preloadPath, error);
+    });
+
+    mainWindow.webContents.on('console-message', (_event, level, message) => {
+      console.log(`[Renderer:${level}] ${message}`);
+    });
+
+    console.log('[Main] App initialized');
+  })
+  .catch(console.error);
 
 app.on('before-quit', async () => {
   await cleanupVideoWorkers();

@@ -7,7 +7,7 @@ import { Settings } from './components/Settings';
 import { VideoTrimmer } from './components/VideoTrimmer';
 import { TagEditor } from './components/TagEditor';
 import { Toast } from './components/Toast';
-import { MediaPlayerRef } from './components/MediaPlayer';
+import { VideoPlayerRef } from './components/VideoPlayer';
 
 import { useAppStore } from './store/useAppStore';
 import { useMediaStore } from './store/useMediaStore';
@@ -21,53 +21,53 @@ function App() {
   useAppInit();
 
   // Stores
-  const { 
-    showSettings, 
-    showTrimmer, 
-    tagEditorOpen, 
+  const {
+    showSettings,
+    showTrimmer,
+    tagEditorOpen,
     editingMedias,
     watchedFolders,
     setWatchedFolders,
-    setShowSettings, 
+    setShowSettings,
     setShowTrimmer,
     setTagEditorOpen,
-    apiReady
+    apiReady,
   } = useAppStore();
 
-  const { 
-    selectedMediaIds, 
-    lastSelectedId, 
-    filteredMediaList 
-  } = useMediaStore();
+  const { selectedMediaIds, lastSelectedId, filteredMediaList } = useMediaStore();
 
   // Actions
-  const { 
-    handleAddFolder, 
-    handleDeleteMedia, 
-    handleSaveTags,
-    loadMedia
-  } = useMediaActions();
+  const { handleAddFolder, handleDeleteMedia, handleSaveTags, loadMedia } = useMediaActions();
 
-  const { 
-    handleNextMedia, 
-    handlePreviousMedia 
-  } = usePlayerActions();
+  const { handleNextMedia, handlePreviousMedia } = usePlayerActions();
 
   // Refs
-  const playerRef = useRef<MediaPlayerRef>(null);
+  const playerRef = useRef<VideoPlayerRef>(null);
+
+  // 获取当前选中的媒体类型
+  const selectedMedia = lastSelectedId
+    ? filteredMediaList.find(m => m.id === lastSelectedId) || null
+    : null;
 
   // Global Keyboard Shortcuts
   useKeyboard({
     onScanFolder: handleAddFolder,
     onPlayPause: () => {
-      // Only toggle if media is selected and it's a video (handled in MediaPlayer but safer here)
-      // Actually MediaPlayer handles checks internally usually, but let's check store
-      if (lastSelectedId) {
+      // 只有视频时才可以播放/暂停
+      if (selectedMedia?.type === 'video') {
         playerRef.current?.togglePlayPause();
       }
     },
-    onSeekBackward: () => playerRef.current?.seek(-5),
-    onSeekForward: () => playerRef.current?.seek(5),
+    onSeekBackward: () => {
+      if (selectedMedia?.type === 'video') {
+        playerRef.current?.seek(-5);
+      }
+    },
+    onSeekForward: () => {
+      if (selectedMedia?.type === 'video') {
+        playerRef.current?.seek(5);
+      }
+    },
     onDelete: () => {
       if (selectedMediaIds.size > 0) {
         handleDeleteMedia(Array.from(selectedMediaIds));
@@ -87,10 +87,6 @@ function App() {
     // Note: onFocusSearch is handled in Sidebar.tsx
   });
 
-  const selectedMedia = lastSelectedId
-    ? filteredMediaList.find(m => m.id === lastSelectedId) || null
-    : null;
-
   if (!apiReady) {
     return (
       <div className="flex h-screen bg-[#202020] items-center justify-center">
@@ -108,14 +104,14 @@ function App() {
       <Toast />
       <div className="flex flex-col h-screen bg-[#202020] overflow-hidden">
         <TitleBar />
-        
+
         <div className="flex-1 relative overflow-hidden">
           <ScanProgressOverlay />
-          
+
           <Sidebar />
-          
+
           <PlayerArea ref={playerRef} />
-          
+
           {/* Modals */}
           <Settings
             isOpen={showSettings}
