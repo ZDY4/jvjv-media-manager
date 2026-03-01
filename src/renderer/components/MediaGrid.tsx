@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import type { MediaFile } from '../../shared/types';
+import type { MediaFile, Playlist } from '../../shared/types';
 import { formatSize } from '../utils/format';
 import { getMediaUrl } from '../utils/mediaUrl';
 import { VirtualMediaGrid } from './VirtualMediaGrid';
@@ -13,9 +13,13 @@ interface MediaGridProps {
   onOpenFolder?: (media: MediaFile) => void;
   onEditTags?: (medias: MediaFile[]) => void;
   onRemoveFromPlaylist?: (mediaIds: string[]) => void;
+  onAddToPlaylist?: (playlistId: string | null, mediaIds: string[]) => void;
+  playlists?: Playlist[];
   viewMode?: 'list' | 'grid';
   iconSize?: number;
   onIconSizeChange?: (size: number) => void;
+  // 空白处右键回调
+  onEmptyContextMenu?: (e: React.MouseEvent) => void;
 }
 
 interface ContextMenuState {
@@ -33,9 +37,12 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
   onOpenFolder,
   onEditTags,
   onRemoveFromPlaylist,
+  onAddToPlaylist,
+  playlists = [],
   viewMode = 'list',
   iconSize = 120,
   onIconSizeChange,
+  onEmptyContextMenu,
 }) => {
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
@@ -44,19 +51,29 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
     media: null,
   });
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showPlaylistDialog, setShowPlaylistDialog] = useState(false);
+  const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null);
+  const [mediaToAdd, setMediaToAdd] = useState<string[]>([]);
   const menuRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 处理右键菜单
-  const handleContextMenu = (e: React.MouseEvent, media: MediaFile) => {
+  const handleContextMenu = (e: React.MouseEvent, media: MediaFile | null) => {
     e.preventDefault();
     e.stopPropagation();
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      media,
-    });
+
+    if (media) {
+      setContextMenu({
+        visible: true,
+        x: e.clientX,
+        y: e.clientY,
+        media,
+      });
+    } else {
+      // 空白处右键
+      onEmptyContextMenu?.(e);
+    }
   };
 
   // 关闭菜单
@@ -78,7 +95,7 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
   }, [contextMenu.visible]);
 
   // 执行菜单操作
-  const handleMenuAction = (action: 'open' | 'delete' | 'tags' | 'remove') => {
+  const handleMenuAction = (action: 'open' | 'delete' | 'tags' | 'remove' | 'addToPlaylist') => {
     if (!contextMenu.media) return;
 
     const targetIds = selectedIds.has(contextMenu.media.id)
@@ -100,8 +117,29 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
       case 'remove':
         onRemoveFromPlaylist?.(targetIds);
         break;
+      case 'addToPlaylist':
+        setMediaToAdd(targetIds);
+        setShowPlaylistDialog(true);
+        break;
     }
     closeContextMenu();
+  };
+
+  // 处理添加到播放列表
+  const handleConfirmAddToPlaylist = () => {
+    if (mediaToAdd.length > 0 && onAddToPlaylist) {
+      if (newPlaylistName.trim()) {
+        // 创建新播放列表并添加
+        onAddToPlaylist(null, mediaToAdd);
+      } else if (selectedPlaylistId) {
+        // 添加到已有播放列表
+        onAddToPlaylist(selectedPlaylistId, mediaToAdd);
+      }
+    }
+    setShowPlaylistDialog(false);
+    setNewPlaylistName('');
+    setSelectedPlaylistId(null);
+    setMediaToAdd([]);
   };
 
   // 处理点击事件（支持多选）
@@ -146,7 +184,10 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
   if (viewMode === 'list') {
     return (
       <>
-        <div className="media-grid-container p-2 space-y-1">
+        <div
+          className="media-grid-container p-2 space-y-1 flex-1 overflow-auto"
+          onContextMenu={e => handleContextMenu(e, null)}
+        >
           {mediaList.map(media => (
             <div
               key={media.id}
@@ -206,7 +247,7 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
             <div className="flex flex-col items-center justify-center py-12 text-gray-500">
               <p className="text-3xl mb-3 opacity-50">📂</p>
               <p className="text-sm">暂无媒体文件</p>
-              <p className="text-xs mt-1 opacity-60">点击添加文件或文件夹</p>
+              <p className="text-xs mt-1 opacity-60">右键点击空白处添加文件或文件夹</p>
             </div>
           )}
         </div>
@@ -215,7 +256,7 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
         {contextMenu.visible && contextMenu.media && (
           <div
             ref={menuRef}
-            className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[160px]"
+            className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[180px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={e => e.stopPropagation()}
           >
@@ -224,6 +265,12 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
               className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
             >
               📂 打开所在目录
+            </button>
+            <button
+              onClick={() => handleMenuAction('addToPlaylist')}
+              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+            >
+              📋 添加到播放列表
             </button>
             <button
               onClick={() => handleMenuAction('tags')}
@@ -248,6 +295,78 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
             </button>
           </div>
         )}
+
+        {/* 添加到播放列表对话框 */}
+        {showPlaylistDialog && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-[#2D2D2D] rounded-lg p-6 w-96 border border-[#3D3D3D]">
+              <h3 className="text-[#e0e0e0] font-semibold mb-4">添加到播放列表</h3>
+
+              {playlists.length > 0 && (
+                <div className="mb-4">
+                  <label className="text-gray-400 text-xs mb-2 block">选择播放列表</label>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {playlists.map(playlist => (
+                      <button
+                        key={playlist.id}
+                        onClick={() => {
+                          setSelectedPlaylistId(playlist.id);
+                          setNewPlaylistName('');
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                          selectedPlaylistId === playlist.id
+                            ? 'bg-[#005FB8] text-white'
+                            : 'text-gray-300 hover:bg-[#e0e0e0]/5'
+                        }`}
+                      >
+                        {playlist.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="text-gray-400 text-xs mb-2 block">或创建新播放列表</label>
+                <input
+                  type="text"
+                  value={newPlaylistName}
+                  onChange={e => {
+                    setNewPlaylistName(e.target.value);
+                    setSelectedPlaylistId(null);
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleConfirmAddToPlaylist();
+                    if (e.key === 'Escape') setShowPlaylistDialog(false);
+                  }}
+                  placeholder="输入新播放列表名称"
+                  className="w-full px-3 py-2 bg-[#1a1a1a] border border-[#3D3D3D] rounded text-[#e0e0e0] placeholder-gray-500 focus:outline-none focus:border-[#005FB8]"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setShowPlaylistDialog(false);
+                    setNewPlaylistName('');
+                    setSelectedPlaylistId(null);
+                    setMediaToAdd([]);
+                  }}
+                  className="px-4 py-2 text-gray-400 hover:text-[#e0e0e0] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleConfirmAddToPlaylist}
+                  disabled={!selectedPlaylistId && !newPlaylistName.trim()}
+                  className="px-4 py-2 bg-[#005FB8] text-white rounded hover:bg-[#004a91] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  添加
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
@@ -259,6 +378,7 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
         className="media-grid-container flex-1 overflow-hidden relative"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={e => handleContextMenu(e, null)}
       >
         {/* 操作提示 */}
         {showTooltip && (
@@ -271,9 +391,126 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
           mediaList={mediaList}
           selectedIds={selectedIds}
           onPlay={onPlay}
+          onContextMenu={handleContextMenu}
           iconSize={iconSize}
         />
       </div>
+
+      {/* 右键菜单 - 网格视图 */}
+      {contextMenu.visible && contextMenu.media && (
+        <div
+          ref={menuRef}
+          className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[180px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            onClick={() => handleMenuAction('open')}
+            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+          >
+            📂 打开所在目录
+          </button>
+          <button
+            onClick={() => handleMenuAction('addToPlaylist')}
+            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+          >
+            📋 添加到播放列表
+          </button>
+          <button
+            onClick={() => handleMenuAction('tags')}
+            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+          >
+            🏷️ 编辑标签
+          </button>
+          {onRemoveFromPlaylist && (
+            <button
+              onClick={() => handleMenuAction('remove')}
+              className="w-full text-left px-4 py-2 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
+            >
+              📤 移出播放列表
+            </button>
+          )}
+          <div className="border-t border-[#3D3D3D] my-1"></div>
+          <button
+            onClick={() => handleMenuAction('delete')}
+            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+          >
+            🗑️ 删除
+          </button>
+        </div>
+      )}
+
+      {/* 添加到播放列表对话框 - 网格视图 */}
+      {showPlaylistDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#2D2D2D] rounded-lg p-6 w-96 border border-[#3D3D3D]">
+            <h3 className="text-[#e0e0e0] font-semibold mb-4">添加到播放列表</h3>
+
+            {playlists.length > 0 && (
+              <div className="mb-4">
+                <label className="text-gray-400 text-xs mb-2 block">选择播放列表</label>
+                <div className="max-h-40 overflow-y-auto space-y-1">
+                  {playlists.map(playlist => (
+                    <button
+                      key={playlist.id}
+                      onClick={() => {
+                        setSelectedPlaylistId(playlist.id);
+                        setNewPlaylistName('');
+                      }}
+                      className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                        selectedPlaylistId === playlist.id
+                          ? 'bg-[#005FB8] text-white'
+                          : 'text-gray-300 hover:bg-[#e0e0e0]/5'
+                      }`}
+                    >
+                      {playlist.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="text-gray-400 text-xs mb-2 block">或创建新播放列表</label>
+              <input
+                type="text"
+                value={newPlaylistName}
+                onChange={e => {
+                  setNewPlaylistName(e.target.value);
+                  setSelectedPlaylistId(null);
+                }}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleConfirmAddToPlaylist();
+                  if (e.key === 'Escape') setShowPlaylistDialog(false);
+                }}
+                placeholder="输入新播放列表名称"
+                className="w-full px-3 py-2 bg-[#1a1a1a] border border-[#3D3D3D] rounded text-[#e0e0e0] placeholder-gray-500 focus:outline-none focus:border-[#005FB8]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowPlaylistDialog(false);
+                  setNewPlaylistName('');
+                  setSelectedPlaylistId(null);
+                  setMediaToAdd([]);
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-[#e0e0e0] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmAddToPlaylist}
+                disabled={!selectedPlaylistId && !newPlaylistName.trim()}
+                className="px-4 py-2 bg-[#005FB8] text-white rounded hover:bg-[#004a91] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                添加
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -40,6 +40,10 @@ out/
 *.db
 *.sqlite
 
+# Generated data
+thumbnails/
+config.json
+
 # FFmpeg
 ffmpeg.exe
 ffprobe.exe

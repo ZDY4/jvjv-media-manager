@@ -21,13 +21,20 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
 
   const { lastSelectedId, filteredMediaList } = useMediaStore();
 
-  const { handleNextMedia, handlePreviousMedia, togglePlayMode } = usePlayerActions();
+  const {
+    handleNextMedia,
+    handlePreviousMedia,
+    handlePreviousManual,
+    handleNextManual,
+    togglePlayMode,
+  } = usePlayerActions();
 
   const { handleOpenMediaFolder, handleDeleteMedia } = useMediaActions();
 
   const selectedMedia = lastSelectedId
     ? filteredMediaList.find(m => m.id === lastSelectedId) || null
     : null;
+  const canNavigate = !!selectedMedia && filteredMediaList.length > 1;
 
   // Local state for context menu
   const [contextMenu, setContextMenu] = useState<{
@@ -82,9 +89,9 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
         <>
           {/* Title and Tags Overlay */}
           <div className="absolute top-0 left-0 right-0 z-20 p-3 bg-gradient-to-b from-[#1a1a1a]/70 to-transparent pointer-events-none">
-            <div className="flex items-center gap-3 justify-center">
+            <div className="flex items-center gap-3 justify-start">
               <h2
-                className="text-[#e0e0e0] text-sm font-medium truncate max-w-[50%] pointer-events-auto"
+                className="text-[#e0e0e0] text-sm font-medium truncate max-w-[70%] pointer-events-auto"
                 title={selectedMedia.filename}
               >
                 {selectedMedia.filename}
@@ -125,6 +132,52 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
               />
             )}
           </div>
+
+          {canNavigate && (
+            <>
+              <div className="absolute inset-y-0 left-0 z-30 w-20">
+                <div className="group h-full w-full flex items-center justify-start">
+                  <button
+                    type="button"
+                    onClick={handlePreviousManual}
+                    className="ml-3 w-10 h-10 rounded-full bg-black/40 text-white border border-white/10 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-black/60 transition-all duration-150 flex items-center justify-center"
+                    aria-label="上一个"
+                    title="上一个"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 19l-7-7 7-7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <div className="absolute inset-y-0 right-0 z-30 w-20">
+                <div className="group h-full w-full flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={handleNextManual}
+                    className="mr-3 w-10 h-10 rounded-full bg-black/40 text-white border border-white/10 backdrop-blur-sm opacity-0 group-hover:opacity-100 hover:bg-black/60 transition-all duration-150 flex items-center justify-center"
+                    aria-label="下一个"
+                    title="下一个"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Context Menu */}
           {contextMenu.visible && selectedMedia && (

@@ -20,7 +20,7 @@ export async function createMainWindow(isDev: boolean): Promise<BrowserWindow> {
     minWidth: 1000,
     minHeight: 600,
     center: true,
-    frame: true, // 临时启用边框以便调试
+    frame: false, // 使用自定义标题栏，隐藏原生边框
     backgroundColor: '#202020',
     webPreferences: {
       nodeIntegration: false,

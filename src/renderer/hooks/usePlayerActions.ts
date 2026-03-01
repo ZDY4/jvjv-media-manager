@@ -54,6 +54,40 @@ export const usePlayerActions = () => {
     }
   }, [selectedIndex, filteredMediaList, setLastSelectedId, setSelectedMediaIds]);
 
+  const handlePreviousManual = useCallback(() => {
+    if (filteredMediaList.length <= 1) return;
+    if (selectedIndex > 0) {
+      const prevMedia = filteredMediaList[selectedIndex - 1];
+      if (prevMedia) {
+        setLastSelectedId(prevMedia.id);
+        setSelectedMediaIds(new Set([prevMedia.id]));
+      }
+    } else if (selectedIndex === 0) {
+      const lastMedia = filteredMediaList[filteredMediaList.length - 1];
+      if (lastMedia) {
+        setLastSelectedId(lastMedia.id);
+        setSelectedMediaIds(new Set([lastMedia.id]));
+      }
+    }
+  }, [filteredMediaList, selectedIndex, setLastSelectedId, setSelectedMediaIds]);
+
+  const handleNextManual = useCallback(() => {
+    if (filteredMediaList.length <= 1) return;
+    if (selectedIndex >= 0 && selectedIndex < filteredMediaList.length - 1) {
+      const nextMedia = filteredMediaList[selectedIndex + 1];
+      if (nextMedia) {
+        setLastSelectedId(nextMedia.id);
+        setSelectedMediaIds(new Set([nextMedia.id]));
+      }
+    } else if (selectedIndex === filteredMediaList.length - 1 || selectedIndex === -1) {
+      const firstMedia = filteredMediaList[0];
+      if (firstMedia) {
+        setLastSelectedId(firstMedia.id);
+        setSelectedMediaIds(new Set([firstMedia.id]));
+      }
+    }
+  }, [filteredMediaList, selectedIndex, setLastSelectedId, setSelectedMediaIds]);
+
   const handleNextMedia = useCallback(() => {
     if (filteredMediaList.length === 0) return;
 
@@ -110,6 +144,8 @@ export const usePlayerActions = () => {
   return {
     togglePlayMode,
     handlePreviousMedia,
-    handleNextMedia
+    handlePreviousManual,
+    handleNextManual,
+    handleNextMedia,
   };
 };

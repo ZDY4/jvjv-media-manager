@@ -49,6 +49,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setDataDir: (dirPath: string) => ipcRenderer.invoke('set-data-dir', dirPath),
   selectDataDir: () => ipcRenderer.invoke('select-data-dir'),
 
+  // 密码管理
+  getLockPassword: () => ipcRenderer.invoke('get-lock-password'),
+  setLockPassword: (password: string) => ipcRenderer.invoke('set-lock-password', password),
+
   // 菜单事件监听
   onMenuAddFiles: (callback: () => void) => {
     ipcRenderer.removeAllListeners('menu-add-files');
@@ -86,7 +90,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
-  // 播放列表窗口管理
+  // 扫描增量批次
+  onScanBatch: (callback: (data: { files: MediaFile[]; isComplete: boolean }) => void) => {
+    ipcRenderer.removeAllListeners('scan-batch');
+    ipcRenderer.on('scan-batch', (_, data) => callback(data));
+    return () => {
+      ipcRenderer.removeAllListeners('scan-batch');
+    };
+  },
+
+  // 媒体库窗口管理
   createPlaylistWindow: () => ipcRenderer.invoke('create-playlist-window'),
   closePlaylistWindow: () => ipcRenderer.invoke('close-playlist-window'),
   onPlaylistWindowClosed: (callback: () => void) => {
@@ -101,8 +114,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     selectedId: string | null;
     viewMode?: 'list' | 'grid';
     iconSize?: number;
-  }) =>
-    ipcRenderer.invoke('sync-playlist-data', data),
+  }) => ipcRenderer.invoke('sync-playlist-data', data),
   onPlaylistAction: (callback: (action: { type: string; payload?: unknown }) => void) => {
     ipcRenderer.removeAllListeners('playlist-action');
     ipcRenderer.on('playlist-action', (_, action) => callback(action));
@@ -111,7 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
 
-  // 播放列表窗口专用 API
+  // 媒体库窗口专用 API
   onPlaylistDataSync: (
     callback: (data: {
       mediaList: MediaFile[];
@@ -135,10 +147,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
   maximizeWindow: () => ipcRenderer.send('maximize-window'),
   closeWindow: () => ipcRenderer.send('close-window'),
 
-  // 播放列表窗口控制
+  // 媒体库窗口控制
   minimizePlaylistWindow: () => ipcRenderer.send('minimize-playlist-window'),
   maximizePlaylistWindow: () => ipcRenderer.send('maximize-playlist-window'),
   closePlaylistWindowDirect: () => ipcRenderer.send('close-playlist-window-direct'),
+
+  // 播放列表管理
+  getAllPlaylists: () => ipcRenderer.invoke('get-all-playlists'),
+  getPlaylist: (id: string) => ipcRenderer.invoke('get-playlist', id),
+  getPlaylistMedia: (playlistId: string) => ipcRenderer.invoke('get-playlist-media', playlistId),
+  createPlaylist: (name: string) => ipcRenderer.invoke('create-playlist', name),
+  renamePlaylist: (id: string, name: string) => ipcRenderer.invoke('rename-playlist', id, name),
+  deletePlaylist: (id: string) => ipcRenderer.invoke('delete-playlist', id),
+  updatePlaylistOrder: (orders: { id: string; sortOrder: number }[]) =>
+    ipcRenderer.invoke('update-playlist-order', orders),
+  addMediaToPlaylist: (playlistId: string, mediaIds: string[]) =>
+    ipcRenderer.invoke('add-media-to-playlist', playlistId, mediaIds),
+  removeMediaFromPlaylist: (playlistId: string, mediaIds: string[]) =>
+    ipcRenderer.invoke('remove-media-from-playlist', playlistId, mediaIds),
+  updatePlaylistMediaOrder: (playlistId: string, mediaIds: string[]) =>
+    ipcRenderer.invoke('update-playlist-media-order', playlistId, mediaIds),
 });
 
 console.log('[Preload] Electron API 初始化完成');

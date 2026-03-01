@@ -20,7 +20,7 @@ export interface VideoPlayerProps {
 }
 
 export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
-  ({ media, onEnded, onContextMenu, playMode, onTogglePlayMode }, ref) => {
+  ({ media, onEnded, onPrevious, onNext, onContextMenu, playMode, onTogglePlayMode }, ref) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
@@ -273,6 +273,40 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
               </div>
             </div>
           )}
+
+          {/* 左右切换箭头 */}
+          {onPrevious && (
+            <button
+              onClick={onPrevious}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-20 flex items-center justify-center text-white/50 hover:text-white hover:bg-black/30 rounded-lg transition-all opacity-0 hover:opacity-100"
+              title="上一个 (PageUp)"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+          )}
+          {onNext && (
+            <button
+              onClick={onNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-20 flex items-center justify-center text-white/50 hover:text-white hover:bg-black/30 rounded-lg transition-all opacity-0 hover:opacity-100"
+              title="下一个 (PageDown)"
+            >
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 5l7 7-7 7"
+                />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* 底部控制条 */}
@@ -281,17 +315,19 @@ export const VideoPlayer = forwardRef<VideoPlayerRef, VideoPlayerProps>(
             showControls ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {/* 进度条 */}
+          {/* 进度条 - 默认3px，hover时8px */}
           <div
             ref={progressRef}
-            className="w-full h-1 bg-white/20 rounded-full cursor-pointer mb-3 relative group"
+            className="w-full h-2 flex items-center cursor-pointer mb-3 relative group"
             onClick={handleSeek}
           >
-            <div
-              className="h-full bg-[#005FB8] rounded-full relative"
-              style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
-            >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+            <div className="w-full h-[3px] bg-white/20 rounded-full group-hover:h-2 transition-all duration-200">
+              <div
+                className="h-full bg-[#005FB8] rounded-full relative"
+                style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+              </div>
             </div>
           </div>
 

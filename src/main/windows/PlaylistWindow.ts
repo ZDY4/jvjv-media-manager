@@ -14,22 +14,22 @@ export async function createPlaylistWindow(): Promise<BrowserWindow> {
   playlistWindow = new BrowserWindow({
     width: 400,
     height: 800,
-    minWidth: 300,
+    minWidth: 250,
     minHeight: 500,
-    title: '播放列表',
+    title: '媒体库',
     frame: false,
     titleBarStyle: 'hidden',
     backgroundColor: '#202020',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.resolve(__dirname, '../preload.js'),
+      preload: path.resolve(__dirname, 'preload.js'),
       webSecurity: !isDev,
     },
     show: false,
   });
 
-  // 加载播放列表页面
+  // 加载媒体库页面
   if (isDev) {
     await playlistWindow.loadURL('http://localhost:5173/playlist.html');
   } else {

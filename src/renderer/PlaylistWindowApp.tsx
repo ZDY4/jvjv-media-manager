@@ -16,23 +16,26 @@ export const PlaylistWindowApp = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchTags, setSearchTags] = useState<string[]>([]);
 
-  const selectedIds = useMemo(() => (selectedId ? new Set([selectedId]) : new Set<string>()), [selectedId]);
+  const selectedIds = useMemo(
+    () => (selectedId ? new Set([selectedId]) : new Set<string>()),
+    [selectedId]
+  );
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const filteredList = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const tags = searchTags;
-    return mediaList.filter((m) => {
+    return mediaList.filter(m => {
       if (q && !m.filename.toLowerCase().includes(q)) return false;
-      if (tags.length > 0 && !tags.every((t) => m.tags.includes(t))) return false;
+      if (tags.length > 0 && !tags.every(t => m.tags.includes(t))) return false;
       return true;
     });
   }, [mediaList, searchQuery, searchTags]);
 
   const selectedIndexText = useMemo(() => {
     if (!selectedId) return '';
-    const idx = filteredList.findIndex((m) => m.id === selectedId);
+    const idx = filteredList.findIndex(m => m.id === selectedId);
     if (idx < 0) return '';
     return `${idx + 1} / ${filteredList.length}`;
   }, [filteredList, selectedId]);
@@ -40,7 +43,7 @@ export const PlaylistWindowApp = () => {
   useEffect(() => {
     if (!window.electronAPI?.onPlaylistDataSync) return;
 
-    const unsubscribe = window.electronAPI.onPlaylistDataSync((data) => {
+    const unsubscribe = window.electronAPI.onPlaylistDataSync(data => {
       setMediaList(data.mediaList ?? []);
       setSelectedId(data.selectedId ?? null);
       if (data.viewMode) setViewMode(data.viewMode);
@@ -53,7 +56,11 @@ export const PlaylistWindowApp = () => {
   }, []);
 
   useEffect(() => {
-    window.electronAPI?.sendPlaylistAction?.({ type: 'ready' });
+    // 延迟发送 ready 信号，确保 IPC 监听器已设置
+    const timer = setTimeout(() => {
+      window.electronAPI?.sendPlaylistAction?.({ type: 'ready' });
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   const requestAttachToMain = () => {
@@ -78,20 +85,18 @@ export const PlaylistWindowApp = () => {
 
   return (
     <div className="h-screen flex flex-col bg-[#202020] text-white overflow-hidden">
-      <div className="h-9 bg-[#2D2D2D] flex items-center justify-between select-none z-50" style={{ WebkitAppRegion: 'drag' }}>
+      <div
+        className="h-9 bg-[#2D2D2D] flex items-center justify-between select-none z-50"
+        style={{ WebkitAppRegion: 'drag' }}
+      >
         <div className="flex items-center gap-2 px-3" style={{ WebkitAppRegion: 'no-drag' }}>
-          <span className="text-[#e0e0e0] text-sm font-semibold">播放列表</span>
-          <button
-            onClick={requestAttachToMain}
-            className="text-xs text-gray-400 hover:text-blue-400 transition-colors"
-            title="回到主窗口"
-          >
-            🗗 合并
-          </button>
+          <span className="text-[#e0e0e0] text-sm font-semibold hidden [@media(min-width:250px)]:inline">
+            媒体库
+          </span>
         </div>
         <div className="flex items-center" style={{ WebkitAppRegion: 'no-drag' }}>
           <button
-            onClick={() => window.electronAPI?.minimizeWindow?.()}
+            onClick={() => window.electronAPI?.minimizePlaylistWindow?.()}
             className="w-10 h-9 flex items-center justify-center text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
             title="最小化"
           >
@@ -100,26 +105,17 @@ export const PlaylistWindowApp = () => {
             </svg>
           </button>
           <button
-            onClick={() => window.electronAPI?.maximizeWindow?.()}
-            className="w-10 h-9 flex items-center justify-center text-gray-400 hover:bg-white/10 hover:text-white transition-colors"
-            title="最大化"
+            onClick={requestAttachToMain}
+            className="w-10 h-9 flex items-center justify-center text-gray-400 hover:bg-red-600 hover:text-white transition-colors"
+            title="关闭"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={2}
-                d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"
+                d="M6 18L18 6M6 6l12 12"
               />
-            </svg>
-          </button>
-          <button
-            onClick={requestAttachToMain}
-            className="w-10 h-9 flex items-center justify-center text-gray-400 hover:bg-red-600 hover:text-white transition-colors"
-            title="关闭"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -131,7 +127,7 @@ export const PlaylistWindowApp = () => {
           onSearchChange={setSearchQuery}
           selectedTags={searchTags}
           onTagsChange={setSearchTags}
-          inputRef={(el) => {
+          inputRef={el => {
             searchInputRef.current = el ?? null;
           }}
         />
@@ -139,25 +135,12 @@ export const PlaylistWindowApp = () => {
 
       <div className="p-3 border-b border-[#3D3D3D] flex justify-between items-center bg-[#202020]">
         <div className="flex items-center gap-2">
-          <span className="text-[#e0e0e0] font-semibold text-sm">播放列表</span>
+          <span className="text-[#e0e0e0] font-semibold text-sm hidden [@media(min-width:250px)]:inline">
+            媒体库
+          </span>
           <span className="text-xs text-gray-400">{selectedIndexText}</span>
         </div>
         <div className="flex items-center gap-2">
-          {viewMode === 'grid' && (
-            <>
-              <span className="text-xs text-gray-400">{iconSize}px</span>
-              <input
-                type="range"
-                min={80}
-                max={240}
-                step={10}
-                value={iconSize}
-                onChange={(e) => handleIconSizeChange(Number(e.target.value))}
-                className="w-28 accent-[#005FB8]"
-                title="缩放图标大小"
-              />
-            </>
-          )}
           <div className="flex bg-[#3D3D3D] rounded-lg p-0.5">
             <button
               onClick={() => handleViewModeChange('list')}
@@ -182,11 +165,11 @@ export const PlaylistWindowApp = () => {
           mediaList={filteredList}
           selectedIds={selectedIds}
           lastSelectedId={selectedId}
-          onPlay={(media) => handlePlay(media)}
+          onPlay={media => handlePlay(media)}
           onDelete={() => {
             window.showToast?.({ message: '请在主窗口中删除', type: 'info' });
           }}
-          onOpenFolder={(media) => {
+          onOpenFolder={media => {
             window.electronAPI?.openMediaFolder?.(media.path);
           }}
           viewMode={viewMode}

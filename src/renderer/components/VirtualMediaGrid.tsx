@@ -9,6 +9,7 @@ interface VirtualMediaGridProps {
   mediaList: MediaFile[];
   selectedIds?: Set<string>;
   onPlay: (media: MediaFile, isCtrlClick: boolean, isShiftClick: boolean) => void;
+  onContextMenu?: (e: React.MouseEvent, media: MediaFile) => void;
   iconSize?: number;
 }
 
@@ -17,6 +18,7 @@ interface VirtualMediaGridCellProps {
   mediaList: MediaFile[];
   selectedIds: Set<string>;
   onPlay: (media: MediaFile, isCtrlClick: boolean, isShiftClick: boolean) => void;
+  onContextMenu?: (e: React.MouseEvent, media: MediaFile) => void;
 }
 
 const ITEM_GAP = 8;
@@ -30,6 +32,7 @@ const Cell = ({
   mediaList,
   selectedIds,
   onPlay,
+  onContextMenu,
 }: CellComponentProps<VirtualMediaGridCellProps>) => {
   const index = rowIndex * columnCount + columnIndex;
   const media = mediaList[index];
@@ -48,7 +51,8 @@ const Cell = ({
           transition-all duration-200 hover:scale-[1.02]
           ${isSelected ? 'ring-2 ring-[#005FB8]' : ''}
         `}
-        onClick={(e) => onPlay(media, e.ctrlKey || e.metaKey, e.shiftKey)}
+        onClick={e => onPlay(media, e.ctrlKey || e.metaKey, e.shiftKey)}
+        onContextMenu={e => onContextMenu?.(e, media)}
       >
         {/* 缩略图 */}
         <div className="w-full h-full bg-gray-800 flex items-center justify-center">
@@ -92,7 +96,9 @@ const Cell = ({
         </div>
 
         {/* 选中指示 */}
-        {isSelected && <div className="absolute top-1 right-1 w-2 h-2 bg-[#005FB8] rounded-full"></div>}
+        {isSelected && (
+          <div className="absolute top-1 right-1 w-2 h-2 bg-[#005FB8] rounded-full"></div>
+        )}
       </div>
     </div>
   );
@@ -102,6 +108,7 @@ export const VirtualMediaGrid: React.FC<VirtualMediaGridProps> = ({
   mediaList,
   selectedIds = new Set(),
   onPlay,
+  onContextMenu,
   iconSize = 120,
 }) => {
   // 单个格子的实际大小 = 图标大小 + 间隙
@@ -130,7 +137,7 @@ export const VirtualMediaGrid: React.FC<VirtualMediaGridProps> = ({
           // 计算行数
           const rowCount = Math.ceil(mediaList.length / columnCount);
           // 实际单元格大小（平分剩余空间）
-          // const actualItemWidth = width / columnCount; 
+          // const actualItemWidth = width / columnCount;
           // 保持固定大小更符合 Windows 资源管理器习惯，但为了填满屏幕，我们可以居中或微调
           // 这里简单起见，使用固定大小，让 react-window 处理滚动
 
@@ -144,6 +151,7 @@ export const VirtualMediaGrid: React.FC<VirtualMediaGridProps> = ({
                 mediaList,
                 selectedIds,
                 onPlay,
+                onContextMenu,
               }}
               columnCount={columnCount}
               columnWidth={itemSize}

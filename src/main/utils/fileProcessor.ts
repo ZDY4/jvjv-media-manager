@@ -77,7 +77,7 @@ export async function processFileExternal(filePath: string): Promise<MediaFile |
 
   return {
     id: crypto.createHash('md5').update(filePath).digest('hex'),
-    path: filePath,
+    path: filePath.replace(/\\/g, '/'),
     filename: path.basename(filePath),
     type,
     size: stats.size,

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { PlayerArea } from './components/PlayerArea';
 import { TitleBar } from './components/TitleBar';
@@ -20,6 +20,22 @@ function App() {
   // Initialization
   useAppInit();
 
+  // 从 Data 目录加载密码
+  useEffect(() => {
+    const loadPassword = async () => {
+      if (!window.electronAPI) return;
+      try {
+        const password = await window.electronAPI.getLockPassword();
+        if (password) {
+          setLockPassword(password);
+        }
+      } catch (error) {
+        console.error('加载密码失败:', error);
+      }
+    };
+    loadPassword();
+  }, []);
+
   // Stores
   const {
     showSettings,
@@ -27,10 +43,14 @@ function App() {
     tagEditorOpen,
     editingMedias,
     watchedFolders,
+    unlockedFolders,
+    lockPassword,
     setWatchedFolders,
     setShowSettings,
     setShowTrimmer,
     setTagEditorOpen,
+    setLockPassword,
+    unlockFolder,
     apiReady,
   } = useAppStore();
 
@@ -40,6 +60,12 @@ function App() {
   const { handleAddFolder, handleDeleteMedia, handleSaveTags, loadMedia } = useMediaActions();
 
   const { handleNextMedia, handlePreviousMedia } = usePlayerActions();
+
+  // 解锁文件夹后自动刷新媒体库
+  const handleUnlockFolder = (path: string) => {
+    unlockFolder(path);
+    loadMedia(); // 自动刷新
+  };
 
   // Refs
   const playerRef = useRef<VideoPlayerRef>(null);
@@ -119,6 +145,10 @@ function App() {
             onDataDirChanged={loadMedia}
             watchedFolders={watchedFolders}
             onWatchedFoldersChange={setWatchedFolders}
+            unlockedFolders={unlockedFolders}
+            onUnlockFolder={handleUnlockFolder}
+            lockPassword={lockPassword}
+            onSetLockPassword={setLockPassword}
           />
 
           {showTrimmer && selectedMedia && (

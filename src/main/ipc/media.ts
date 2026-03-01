@@ -22,8 +22,20 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
           {
             name: '媒体文件',
             extensions: [
-              'mp4', 'avi', 'mkv', 'mov', 'wmv', 'flv', 'webm', 'm4v',
-              'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
+              'mp4',
+              'avi',
+              'mkv',
+              'mov',
+              'wmv',
+              'flv',
+              'webm',
+              'm4v',
+              'jpg',
+              'jpeg',
+              'png',
+              'gif',
+              'bmp',
+              'webp',
             ],
           },
           { name: '所有文件', extensions: ['*'] },
@@ -65,42 +77,61 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
         percent: 0,
       });
 
+      const allFiles: MediaFile[] = [];
+      const processedPaths = new Set<string>();
+
       // 创建带进度回调的扫描器
       const scanner = new MediaScanner(progress => {
         const percent = Math.round((progress.scanned / progress.total) * 100);
+
+        // 发送进度更新
         event.sender.send('scan-progress', {
           status: 'scanning',
           message: `正在处理: ${progress.scanned}/${progress.total}`,
           percent,
         });
+
+        // 发送增量批次数据
+        if (progress.batch.length > 0) {
+          // 去重：只发送未处理过的文件
+          const newBatch = progress.batch.filter(file => {
+            if (processedPaths.has(file.path)) {
+              return false;
+            }
+            processedPaths.add(file.path);
+            return true;
+          });
+
+          if (newBatch.length > 0) {
+            allFiles.push(...newBatch);
+
+            // 添加到数据库
+            for (const file of newBatch) {
+              dbManager.addMedia(file);
+            }
+
+            // 发送增量数据到前端
+            event.sender.send('scan-batch', {
+              files: newBatch,
+              isComplete: progress.isComplete,
+            });
+          }
+        }
+
+        // 如果是最后一批，发送完成通知
+        if (progress.isComplete) {
+          event.sender.send('scan-progress', {
+            status: 'complete',
+            message: `完成，共添加 ${allFiles.length} 个文件`,
+            percent: 100,
+          });
+        }
       });
 
       // 扫描所有选中的文件夹
-      const allFiles = await scanner.scan(result.filePaths);
+      await scanner.scan(result.filePaths);
 
-      // 去重（根据文件路径）
-      const uniqueFiles = new Map<string, MediaFile>();
-      for (const file of allFiles) {
-        if (!uniqueFiles.has(file.path)) {
-          uniqueFiles.set(file.path, file);
-        }
-      }
-
-      const finalFiles = Array.from(uniqueFiles.values());
-
-      // 添加到数据库
-      for (const f of finalFiles) {
-        dbManager.addMedia(f);
-      }
-
-      // 发送完成通知
-      event.sender.send('scan-progress', {
-        status: 'complete',
-        message: `完成，共添加 ${finalFiles.length} 个文件`,
-        percent: 100,
-      });
-
-      return finalFiles;
+      return allFiles;
     } catch (error) {
       console.error('添加文件夹失败:', error);
       // 发送错误通知
@@ -130,50 +161,69 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
         percent: 0,
       });
 
+      // 获取现有媒体列表
+      const existingMedia = dbManager.getAllMedia();
+      const existingPaths = new Set(existingMedia.map(m => m.path));
+
+      const allFiles: MediaFile[] = [];
+      let addedCount = 0;
+      const processedPaths = new Set<string>();
+
       // 创建带进度回调的扫描器
       const scanner = new MediaScanner(progress => {
         const percent = Math.round((progress.scanned / progress.total) * 100);
+
+        // 发送进度更新
         event.sender.send('scan-progress', {
           status: 'scanning',
           message: `正在处理: ${progress.scanned}/${progress.total}`,
           percent,
         });
+
+        // 发送增量批次数据
+        if (progress.batch.length > 0) {
+          // 去重并筛选新增的文件
+          const newBatch = progress.batch.filter(file => {
+            if (processedPaths.has(file.path)) {
+              return false;
+            }
+            processedPaths.add(file.path);
+            return true;
+          });
+
+          if (newBatch.length > 0) {
+            allFiles.push(...newBatch);
+
+            // 添加新文件到数据库
+            for (const file of newBatch) {
+              if (!existingPaths.has(file.path)) {
+                dbManager.addMedia(file);
+                addedCount++;
+              }
+            }
+
+            // 发送增量数据到前端
+            event.sender.send('scan-batch', {
+              files: newBatch,
+              isComplete: progress.isComplete,
+            });
+          }
+        }
+
+        // 如果是最后一批，发送完成通知
+        if (progress.isComplete) {
+          event.sender.send('scan-progress', {
+            status: 'complete',
+            message: `完成，新增 ${addedCount} 个文件`,
+            percent: 100,
+          });
+        }
       });
 
       // 扫描所有指定的文件夹
-      const allFiles = await scanner.scan(folderPaths);
+      await scanner.scan(folderPaths);
 
-      // 去重（根据文件路径）
-      const uniqueFiles = new Map<string, MediaFile>();
-      for (const file of allFiles) {
-        if (!uniqueFiles.has(file.path)) {
-          uniqueFiles.set(file.path, file);
-        }
-      }
-
-      const finalFiles = Array.from(uniqueFiles.values());
-
-      // 获取现有媒体列表
-      const existingMedia = dbManager.getAllMedia();
-      const existingPaths = new Set(existingMedia.map(m => m.path));
-
-      // 添加新文件
-      let addedCount = 0;
-      for (const f of finalFiles) {
-        if (!existingPaths.has(f.path)) {
-          dbManager.addMedia(f);
-          addedCount++;
-        }
-      }
-
-      // 发送完成通知
-      event.sender.send('scan-progress', {
-        status: 'complete',
-        message: `完成，新增 ${addedCount} 个文件`,
-        percent: 100,
-      });
-
-      return finalFiles;
+      return allFiles;
     } catch (error) {
       console.error('刷新文件夹失败:', error);
       event.sender.send('scan-progress', {

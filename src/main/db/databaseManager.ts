@@ -1,7 +1,8 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
-import type { MediaFile } from '../../shared/types';
+import crypto from 'crypto';
+import type { MediaFile, Playlist, PlaylistWithMedia } from '../../shared/types';
 
 type MediaRow = Omit<MediaFile, 'tags'>;
 
@@ -62,6 +63,40 @@ class DatabaseManager {
     `);
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)
+    `);
+
+    // 创建播放列表表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS playlists (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        createdAt INTEGER NOT NULL
+      )
+    `);
+
+    // 创建播放列表媒体关联表
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS playlist_media (
+        playlistId TEXT NOT NULL,
+        mediaId TEXT NOT NULL,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        addedAt INTEGER NOT NULL,
+        PRIMARY KEY (playlistId, mediaId),
+        FOREIGN KEY (playlistId) REFERENCES playlists(id) ON DELETE CASCADE,
+        FOREIGN KEY (mediaId) REFERENCES media(id) ON DELETE CASCADE
+      )
+    `);
+
+    // 创建播放列表索引
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlists_sortOrder ON playlists(sortOrder)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlist_media_playlistId ON playlist_media(playlistId)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlist_media_mediaId ON playlist_media(mediaId)
     `);
   }
 
@@ -225,6 +260,187 @@ class DatabaseManager {
     if (this.db) {
       this.db.close();
     }
+  }
+
+  // ========== 播放列表相关方法 ==========
+
+  // 获取所有播放列表
+  getAllPlaylists(): Playlist[] {
+    const stmt = this.db.prepare(`
+      SELECT id, name, sortOrder, createdAt
+      FROM playlists
+      ORDER BY sortOrder ASC, createdAt ASC
+    `);
+
+    const playlists: Playlist[] = [];
+    for (const row of stmt.iterate() as IterableIterator<Playlist>) {
+      playlists.push(row);
+    }
+    return playlists;
+  }
+
+  // 获取单个播放列表（包含媒体）
+  getPlaylist(id: string): PlaylistWithMedia | null {
+    const playlistStmt = this.db.prepare(`
+      SELECT id, name, sortOrder, createdAt
+      FROM playlists
+      WHERE id = ?
+    `);
+    const playlist = playlistStmt.get(id) as Playlist | undefined;
+    if (!playlist) return null;
+
+    const mediaStmt = this.db.prepare(`
+      SELECT mediaId
+      FROM playlist_media
+      WHERE playlistId = ?
+      ORDER BY sortOrder ASC, addedAt ASC
+    `);
+
+    const mediaIds: string[] = [];
+    for (const row of mediaStmt.iterate(id) as IterableIterator<{ mediaId: string }>) {
+      mediaIds.push(row.mediaId);
+    }
+
+    return {
+      ...playlist,
+      mediaIds,
+    };
+  }
+
+  // 创建播放列表
+  createPlaylist(name: string): Playlist {
+    const id = crypto.randomUUID();
+    const createdAt = Date.now();
+
+    // 获取当前最大排序号
+    const maxOrderStmt = this.db.prepare(`
+      SELECT MAX(sortOrder) as maxOrder FROM playlists
+    `);
+    const result = maxOrderStmt.get() as { maxOrder: number | null };
+    const sortOrder = (result.maxOrder ?? 0) + 1;
+
+    const stmt = this.db.prepare(`
+      INSERT INTO playlists (id, name, sortOrder, createdAt)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(id, name, sortOrder, createdAt);
+
+    return { id, name, sortOrder, createdAt };
+  }
+
+  // 重命名播放列表
+  renamePlaylist(id: string, name: string): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE playlists SET name = ? WHERE id = ?
+    `);
+    const result = stmt.run(name, id) as { changes: number };
+    return result.changes > 0;
+  }
+
+  // 删除播放列表
+  deletePlaylist(id: string): boolean {
+    const stmt = this.db.prepare(`
+      DELETE FROM playlists WHERE id = ?
+    `);
+    const result = stmt.run(id) as { changes: number };
+    return result.changes > 0;
+  }
+
+  // 更新播放列表排序
+  updatePlaylistOrder(orders: { id: string; sortOrder: number }[]): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE playlists SET sortOrder = ? WHERE id = ?
+    `);
+
+    const updateMany = this.db.transaction(items => {
+      for (const item of items as { id: string; sortOrder: number }[]) {
+        stmt.run(item.sortOrder, item.id);
+      }
+    });
+
+    updateMany(orders);
+    return true;
+  }
+
+  // 添加媒体到播放列表
+  addMediaToPlaylist(playlistId: string, mediaIds: string[]): boolean {
+    const getMaxOrderStmt = this.db.prepare(`
+      SELECT MAX(sortOrder) as maxOrder
+      FROM playlist_media
+      WHERE playlistId = ?
+    `);
+    const result = getMaxOrderStmt.get(playlistId) as { maxOrder: number | null };
+    let currentOrder = (result.maxOrder ?? 0) + 1;
+
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO playlist_media (playlistId, mediaId, sortOrder, addedAt)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    const addMany = this.db.transaction(ids => {
+      const now = Date.now();
+      for (const mediaId of ids as string[]) {
+        stmt.run(playlistId, mediaId, currentOrder++, now);
+      }
+    });
+
+    addMany(mediaIds);
+    return true;
+  }
+
+  // 从播放列表移除媒体
+  removeMediaFromPlaylist(playlistId: string, mediaIds: string[]): boolean {
+    const stmt = this.db.prepare(`
+      DELETE FROM playlist_media
+      WHERE playlistId = ? AND mediaId = ?
+    `);
+
+    const removeMany = this.db.transaction(ids => {
+      for (const mediaId of ids as string[]) {
+        stmt.run(playlistId, mediaId);
+      }
+    });
+
+    removeMany(mediaIds);
+    return true;
+  }
+
+  // 更新播放列表内媒体排序
+  updatePlaylistMediaOrder(playlistId: string, mediaIds: string[]): boolean {
+    const stmt = this.db.prepare(`
+      UPDATE playlist_media SET sortOrder = ?
+      WHERE playlistId = ? AND mediaId = ?
+    `);
+
+    const updateMany = this.db.transaction(ids => {
+      (ids as string[]).forEach((mediaId, index) => {
+        stmt.run(index, playlistId, mediaId);
+      });
+    });
+
+    updateMany(mediaIds);
+    return true;
+  }
+
+  // 获取播放列表中的所有媒体
+  getPlaylistMedia(playlistId: string): MediaFile[] {
+    const stmt = this.db.prepare(`
+      SELECT m.id, m.path, m.filename, m.type, m.size, m.width, m.height,
+             m.duration, m.thumbnail, m.createdAt, m.modifiedAt
+      FROM media m
+      INNER JOIN playlist_media pm ON m.id = pm.mediaId
+      WHERE pm.playlistId = ?
+      ORDER BY pm.sortOrder ASC, pm.addedAt ASC
+    `);
+
+    const mediaList: MediaFile[] = [];
+    for (const row of stmt.iterate(playlistId) as IterableIterator<Omit<MediaFile, 'tags'>>) {
+      mediaList.push({
+        ...row,
+        tags: this.getTags(row.id),
+      });
+    }
+    return mediaList;
   }
 }
 

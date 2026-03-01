@@ -1,5 +1,10 @@
 export type MediaType = 'video' | 'image';
 
+export interface WatchedFolder {
+  path: string;
+  locked: boolean;
+}
+
 export interface MediaFile {
   id: string;
   path: string;
@@ -22,6 +27,18 @@ export interface Tag {
   mediaId: string;
   name: string;
   createdAt: number;
+}
+
+// 播放列表
+export interface Playlist {
+  id: string;
+  name: string;
+  sortOrder: number;
+  createdAt: number;
+}
+
+export interface PlaylistWithMedia extends Playlist {
+  mediaIds: string[];
 }
 
 // Electron API Types
@@ -52,6 +69,11 @@ export interface ElectronAPI {
   getDataDir: () => Promise<string>;
   setDataDir: (dirPath: string) => Promise<boolean>;
   selectDataDir: () => Promise<string | null>;
+
+  // 密码管理
+  getLockPassword: () => Promise<string>;
+  setLockPassword: (password: string) => Promise<{ success: boolean }>;
+
   deleteMedia: (mediaId: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   clearAllMedia: () => Promise<{ success: boolean; message?: string; error?: string }>;
 
@@ -71,7 +93,12 @@ export interface ElectronAPI {
     callback: (data: { status: string; message: string; percent: number }) => void
   ) => () => void;
 
-  // 播放列表窗口管理
+  // 扫描增量批次
+  onScanBatch: (
+    callback: (data: { files: MediaFile[]; isComplete: boolean }) => void
+  ) => () => void;
+
+  // 媒体库窗口管理
   createPlaylistWindow: () => Promise<boolean>;
   closePlaylistWindow: () => Promise<boolean>;
   onPlaylistWindowClosed: (callback: () => void) => () => void;
@@ -83,7 +110,7 @@ export interface ElectronAPI {
   }) => Promise<boolean>;
   onPlaylistAction: (callback: (action: { type: string; payload?: unknown }) => void) => () => void;
 
-  // 播放列表窗口专用 API
+  // 媒体库窗口专用 API
   onPlaylistDataSync: (
     callback: (data: {
       mediaList: MediaFile[];
@@ -99,10 +126,22 @@ export interface ElectronAPI {
   maximizeWindow: () => void;
   closeWindow: () => void;
 
-  // 播放列表窗口控制
+  // 媒体库窗口控制
   minimizePlaylistWindow: () => void;
   maximizePlaylistWindow: () => void;
   closePlaylistWindowDirect: () => void;
+
+  // 播放列表管理
+  getAllPlaylists: () => Promise<Playlist[]>;
+  getPlaylist: (id: string) => Promise<PlaylistWithMedia | null>;
+  getPlaylistMedia: (playlistId: string) => Promise<MediaFile[]>;
+  createPlaylist: (name: string) => Promise<Playlist | null>;
+  renamePlaylist: (id: string, name: string) => Promise<boolean>;
+  deletePlaylist: (id: string) => Promise<boolean>;
+  updatePlaylistOrder: (orders: { id: string; sortOrder: number }[]) => Promise<boolean>;
+  addMediaToPlaylist: (playlistId: string, mediaIds: string[]) => Promise<boolean>;
+  removeMediaFromPlaylist: (playlistId: string, mediaIds: string[]) => Promise<boolean>;
+  updatePlaylistMediaOrder: (playlistId: string, mediaIds: string[]) => Promise<boolean>;
 }
 
 declare global {
