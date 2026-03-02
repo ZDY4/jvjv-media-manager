@@ -103,6 +103,9 @@ export async function generateVideoThumbnail(filePath: string): Promise<string |
       return `file://${thumbnailPath.replace(/\\/g, '/')}`;
     }
 
+    // ffmpeg 不认识 .thumb 扩展名，需要先用 .jpg 生成，再重命名
+    const tempJpgPath = thumbnailPath.replace(THUMBNAIL_EXT, '.jpg');
+
     // 将正斜杠路径转换为 Windows 格式以便 ffmpeg 正确工作
     const windowsPath = process.platform === 'win32' ? toWindowsPath(filePath) : filePath;
 
@@ -111,15 +114,20 @@ export async function generateVideoThumbnail(filePath: string): Promise<string |
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(windowsPath)
-        .screenshots({
-          timestamps: ['00:00:01'],
-          filename: path.basename(thumbnailPath),
-          folder: getThumbnailDir(),
-          size: `${THUMBNAIL_SIZE}x?`,
-        })
+        .seekInput('00:00:01') // 跳转到1秒位置
+        .frames(1) // 只提取1帧
+        .outputOptions('-vf', `scale=${THUMBNAIL_SIZE}:-1`) // 设置尺寸
+        .outputOptions('-q:v', '2') // 设置质量
+        .output(tempJpgPath) // 输出到临时jpg文件
         .on('end', () => resolve())
-        .on('error', (err: Error) => reject(err));
+        .on('error', (err: Error) => reject(err))
+        .run();
     });
+
+    // 将 .jpg 重命名为 .thumb
+    if (fs.existsSync(tempJpgPath)) {
+      fs.renameSync(tempJpgPath, thumbnailPath);
+    }
 
     return `file://${thumbnailPath.replace(/\\/g, '/')}`;
   } catch (error) {
@@ -177,8 +185,11 @@ export function cleanupThumbnails(validFilePaths: string[]): void {
 
     const files = fs.readdirSync(thumbnailDir);
     for (const file of files) {
-      // 使用新的扩展名
-      const hash = path.basename(file, THUMBNAIL_EXT);
+      // 支持新旧两种扩展名 (.thumb 和 .jpg)
+      const hash = file.endsWith(THUMBNAIL_EXT)
+        ? path.basename(file, THUMBNAIL_EXT)
+        : path.basename(file, '.jpg');
+
       if (!validHashes.has(hash)) {
         fs.unlinkSync(path.join(thumbnailDir, file));
         console.log('清理过期缩略图:', file);
