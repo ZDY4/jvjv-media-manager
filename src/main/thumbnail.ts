@@ -104,7 +104,8 @@ export async function generateVideoThumbnail(filePath: string): Promise<string |
     }
 
     // ffmpeg 不认识 .thumb 扩展名，需要先用 .jpg 生成，再重命名
-    const tempJpgPath = thumbnailPath.replace(THUMBNAIL_EXT, '.jpg');
+    // 使用 slice 只替换文件扩展名部分，避免替换目录名中的 .thumb
+    const tempJpgPath = thumbnailPath.slice(0, -THUMBNAIL_EXT.length) + '.jpg';
 
     // 将正斜杠路径转换为 Windows 格式以便 ffmpeg 正确工作
     const windowsPath = process.platform === 'win32' ? toWindowsPath(filePath) : filePath;
