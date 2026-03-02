@@ -440,26 +440,6 @@ export const Sidebar: React.FC = () => {
               </button>
             </div>
 
-            {/* 添加按钮 */}
-            {isLibraryActive && (
-              <>
-                <button
-                  onClick={handleAddFiles}
-                  className="px-2 py-1 text-xs text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 rounded transition-colors"
-                  title="添加文件"
-                >
-                  +文件
-                </button>
-                <button
-                  onClick={handleAddFolder}
-                  className="px-2 py-1 text-xs text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 rounded transition-colors"
-                  title="添加文件夹"
-                >
-                  +文件夹
-                </button>
-              </>
-            )}
-
             {/* 清空按钮 */}
             {currentMediaList.length > 0 && (
               <button
