@@ -54,3 +54,4 @@ ffprobe.exe
 *.bak
 src/npm-cache/
 nul
+AGENTS.md
