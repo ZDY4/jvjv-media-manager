@@ -43,6 +43,7 @@ out/
 # Generated data
 thumbnails/
 config.json
+data/
 
 # FFmpeg
 ffmpeg.exe
