@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
+import { Button, makeStyles, tokens } from '@fluentui/react-components';
 import { useAppStore } from '../store/useAppStore';
 import { useMediaStore } from '../store/useMediaStore';
 import { usePlaylistStore } from '../store/usePlaylistStore';
@@ -10,6 +11,7 @@ import { TabBar } from './TabBar';
 import { MediaFile, Playlist } from '../../shared/types';
 
 export const Sidebar: React.FC = () => {
+  const styles = useStyles();
   // Store state
   const {
     sidebarPinned,
@@ -318,16 +320,18 @@ export const Sidebar: React.FC = () => {
       }}
     >
       <div
-        className={`h-full border-r border-[#3D3D3D] flex flex-col bg-[#2D2D2D]/95 backdrop-blur-sm transition-all duration-300 ease-out ${
+        className={`${styles.sidebarPanel} ${
           sidebarVisible || sidebarPinned ? 'opacity-100' : 'opacity-0 overflow-hidden'
         }`}
         style={{ width: sidebarWidth }}
       >
         {/* 固定按钮 */}
         <div className="absolute right-2 top-2 z-10">
-          <button
+          <Button
+            appearance="subtle"
+            size="small"
             onClick={() => setSidebarPinned(!sidebarPinned)}
-            className="p-1 text-gray-400 hover:text-[#e0e0e0] transition-all duration-200"
+            className={styles.pinButton}
             title={sidebarPinned ? '取消固定' : '固定侧边栏'}
           >
             {sidebarPinned ? (
@@ -349,7 +353,7 @@ export const Sidebar: React.FC = () => {
                 />
               </svg>
             )}
-          </button>
+          </Button>
         </div>
 
         {/* Tab栏 */}
@@ -366,7 +370,7 @@ export const Sidebar: React.FC = () => {
         />
 
         {/* 搜索栏 */}
-        <div className="p-3 border-b border-[#3D3D3D]">
+        <div className={styles.searchContainer}>
           <SearchBar
             searchQuery={currentSearchQuery}
             onSearchChange={setCurrentSearchQuery}
@@ -380,9 +384,9 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* 工具栏 */}
-        <div className="p-3 border-b border-[#3D3D3D] flex justify-between items-center flex-wrap gap-2">
+        <div className={styles.toolbar}>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400">
+            <span className={styles.counterText}>
               {selectedIndex >= 0
                 ? `${selectedIndex + 1} / ${currentMediaList.length}`
                 : `${currentMediaList.length} 个文件`}
@@ -391,58 +395,52 @@ export const Sidebar: React.FC = () => {
 
           <div className="flex items-center gap-2">
             {/* 视图模式切换 */}
-            <div className="flex bg-[#3D3D3D] rounded-lg p-0.5">
-              <button
+            <div className={styles.viewModeGroup}>
+              <Button
+                appearance={viewMode === 'list' ? 'primary' : 'subtle'}
+                size="small"
                 onClick={() => setViewMode('list')}
-                className={`px-2.5 py-1.5 text-xs rounded-md transition-all duration-200 ${
-                  viewMode === 'list'
-                    ? 'bg-[#005FB8] text-[#e0e0e0] shadow-sm'
-                    : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-                }`}
+                className={styles.viewModeButton}
                 title="列表视图"
               >
-                ☰
-              </button>
-              <button
+                列表
+              </Button>
+              <Button
+                appearance={viewMode === 'grid' ? 'primary' : 'subtle'}
+                size="small"
                 onClick={() => setViewMode('grid')}
-                className={`px-2.5 py-1.5 text-xs rounded-md transition-all duration-200 ${
-                  viewMode === 'grid'
-                    ? 'bg-[#005FB8] text-[#e0e0e0] shadow-sm'
-                    : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-                }`}
+                className={styles.viewModeButton}
                 title="图标视图"
               >
-                ▦
-              </button>
+                网格
+              </Button>
             </div>
 
             {/* 排序按钮 */}
             <div className="flex items-center gap-1">
-              <button
+              <Button
+                appearance={currentSortField === 'filename' ? 'primary' : 'subtle'}
+                size="small"
                 onClick={() => toggleCurrentSort('filename')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  currentSortField === 'filename'
-                    ? 'bg-[#005FB8] text-white'
-                    : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-                }`}
+                className={styles.sortButton}
               >
                 名称 {currentSortField === 'filename' && (currentSortOrder === 'asc' ? '↑' : '↓')}
-              </button>
-              <button
+              </Button>
+              <Button
+                appearance={currentSortField === 'modifiedAt' ? 'primary' : 'subtle'}
+                size="small"
                 onClick={() => toggleCurrentSort('modifiedAt')}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  currentSortField === 'modifiedAt'
-                    ? 'bg-[#005FB8] text-white'
-                    : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-                }`}
+                className={styles.sortButton}
               >
                 日期 {currentSortField === 'modifiedAt' && (currentSortOrder === 'asc' ? '↑' : '↓')}
-              </button>
+              </Button>
             </div>
 
             {/* 清空按钮 */}
             {currentMediaList.length > 0 && (
-              <button
+              <Button
+                appearance="subtle"
+                size="small"
                 onClick={() => {
                   if (isLibraryActive) {
                     if (confirm('确定要清空媒体库吗？')) {
@@ -456,11 +454,11 @@ export const Sidebar: React.FC = () => {
                     }
                   }
                 }}
-                className="px-2 py-1 text-xs text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                className={styles.clearButton}
                 title="清空"
               >
                 清空
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -497,3 +495,59 @@ export const Sidebar: React.FC = () => {
     </div>
   );
 };
+
+const useStyles = makeStyles({
+  sidebarPanel: {
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    borderRight: `1px solid ${tokens.colorNeutralStroke2}`,
+    backgroundColor: colorMix(tokens.colorNeutralBackground2, 0.9),
+    backdropFilter: 'blur(12px)',
+    transitionDuration: '300ms',
+    transitionProperty: 'opacity,width,transform',
+    transitionTimingFunction: 'ease-out',
+  },
+  pinButton: {
+    color: tokens.colorNeutralForeground3,
+  },
+  searchContainer: {
+    padding: tokens.spacingHorizontalM,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  toolbar: {
+    padding: tokens.spacingHorizontalM,
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: tokens.spacingHorizontalS,
+  },
+  counterText: {
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase200,
+  },
+  viewModeGroup: {
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: tokens.spacingHorizontalXXS,
+    backgroundColor: colorMix(tokens.colorNeutralBackground3, 0.62),
+    borderRadius: tokens.borderRadiusMedium,
+    padding: tokens.spacingHorizontalXXS,
+  },
+  viewModeButton: {
+    minWidth: '52px',
+  },
+  sortButton: {
+    minWidth: '66px',
+  },
+  clearButton: {
+    color: tokens.colorPaletteRedForeground2,
+  },
+});
+
+function colorMix(color: string, alpha: number): string {
+  const percent = Math.max(0, Math.min(1, alpha)) * 100;
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+}

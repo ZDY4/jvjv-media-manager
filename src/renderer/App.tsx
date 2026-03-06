@@ -1,4 +1,5 @@
 import { useRef, useEffect } from 'react';
+import { Spinner, Text, makeStyles, tokens } from '@fluentui/react-components';
 import { Sidebar } from './components/Sidebar';
 import { PlayerArea } from './components/PlayerArea';
 import { TitleBar } from './components/TitleBar';
@@ -17,6 +18,8 @@ import { usePlayerActions } from './hooks/usePlayerActions';
 import { useKeyboard } from './hooks/useKeyboard';
 
 function App() {
+  const styles = useStyles();
+
   // Initialization
   useAppInit();
 
@@ -115,11 +118,13 @@ function App() {
 
   if (!apiReady) {
     return (
-      <div className="flex h-screen bg-[#202020] items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#005FB8] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[#e0e0e0] text-lg mb-2">正在初始化...</p>
-          <p className="text-gray-400 text-sm">等待 Electron API 加载</p>
+      <div className={styles.loadingRoot}>
+        <div className={styles.loadingContent}>
+          <Spinner size="large" />
+          <Text size={400}>正在初始化...</Text>
+          <Text size={200} className={styles.loadingSubText}>
+            等待 Electron API 加载
+          </Text>
         </div>
       </div>
     );
@@ -128,7 +133,7 @@ function App() {
   return (
     <>
       <Toast />
-      <div className="flex flex-col h-screen bg-[#202020] overflow-hidden">
+      <div className={styles.appShell}>
         <TitleBar />
 
         <div className="flex-1 relative overflow-hidden">
@@ -177,3 +182,29 @@ function App() {
 }
 
 export default App;
+
+const useStyles = makeStyles({
+  loadingRoot: {
+    height: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  loadingContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    rowGap: tokens.spacingVerticalS,
+  },
+  loadingSubText: {
+    color: tokens.colorNeutralForeground3,
+  },
+  appShell: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100vh',
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+});

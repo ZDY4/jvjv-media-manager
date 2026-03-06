@@ -1,4 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
+import {
+  Toast as FluentToast,
+  ToastIntent,
+  ToastTitle,
+  Toaster,
+  useToastController,
+} from '@fluentui/react-components';
 
 export interface ToastConfig {
   message: string;
@@ -7,45 +14,36 @@ export interface ToastConfig {
 }
 
 export const Toast = () => {
-  const [toast, setToast] = useState<ToastConfig | null>(null);
-
-  useEffect(() => {
-    if (toast?.duration !== 0) {
-      const timer = setTimeout(() => setToast(null), toast?.duration ?? 3000);
-      return () => {
-        clearTimeout(timer);
-      };
-    }
-    return undefined;
-  }, [toast]);
+  const toasterId = 'media-manager-toaster';
+  const { dispatchToast } = useToastController(toasterId);
 
   // Expose toast function to window
   useEffect(() => {
     window.showToast = (config: ToastConfig) => {
-      setToast({ type: 'info', duration: 3000, ...config });
+      const nextType = config.type ?? 'info';
+      const intent = toastIntentMap[nextType];
+      const timeout = config.duration === 0 ? 86_400_000 : (config.duration ?? 3000);
+
+      dispatchToast(
+        <FluentToast>
+          <ToastTitle>{config.message}</ToastTitle>
+        </FluentToast>,
+        { intent, timeout }
+      );
     };
+
     return () => {
       delete window.showToast;
     };
-  }, []);
+  }, [dispatchToast]);
 
-  if (!toast) return null;
+  return <Toaster toasterId={toasterId} position="top-end" />;
+};
 
-  const bgColors: Record<'success' | 'error' | 'info', string> = {
-    success: 'bg-green-600',
-    error: 'bg-red-600',
-    info: 'bg-blue-600',
-  };
-
-  return (
-    <div className="fixed top-4 right-4 z-50">
-      <div
-        className={`${bgColors[toast.type ?? 'info']} text-[#e0e0e0] px-6 py-3 rounded shadow-lg transition-all`}
-      >
-        {toast.message}
-      </div>
-    </div>
-  );
+const toastIntentMap: Record<'success' | 'error' | 'info', ToastIntent> = {
+  success: 'success',
+  error: 'error',
+  info: 'info',
 };
 
 // Global toast function
