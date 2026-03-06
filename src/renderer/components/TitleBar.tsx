@@ -7,6 +7,7 @@ import {
   MenuPopover,
   MenuTrigger,
   makeStyles,
+  mergeClasses,
   tokens,
 } from '@fluentui/react-components';
 import { useAppStore } from '../store/useAppStore';
@@ -170,7 +171,7 @@ export const TitleBar: React.FC = () => {
         <Button
           appearance="subtle"
           icon={<CloseIcon />}
-          className={`${styles.windowControl} ${styles.closeControl}`}
+          className={mergeClasses(styles.windowControl, styles.closeControl)}
           onClick={() => window.electronAPI?.closeWindow?.()}
           title="关闭"
         />

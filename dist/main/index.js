@@ -30,7 +30,7 @@ var require_windows = __commonJS({
   "node_modules/isexe/windows.js"(exports2, module2) {
     module2.exports = isexe;
     isexe.sync = sync;
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     function checkPathExt(path11, options) {
       var pathext = options.pathExt !== void 0 ? options.pathExt : process.env.PATHEXT;
       if (!pathext) {
@@ -55,12 +55,12 @@ var require_windows = __commonJS({
       return checkPathExt(path11, options);
     }
     function isexe(path11, options, cb) {
-      fs9.stat(path11, function(er, stat) {
+      fs10.stat(path11, function(er, stat) {
         cb(er, er ? false : checkStat(stat, path11, options));
       });
     }
     function sync(path11, options) {
-      return checkStat(fs9.statSync(path11), path11, options);
+      return checkStat(fs10.statSync(path11), path11, options);
     }
   }
 });
@@ -70,14 +70,14 @@ var require_mode = __commonJS({
   "node_modules/isexe/mode.js"(exports2, module2) {
     module2.exports = isexe;
     isexe.sync = sync;
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     function isexe(path11, options, cb) {
-      fs9.stat(path11, function(er, stat) {
+      fs10.stat(path11, function(er, stat) {
         cb(er, er ? false : checkStat(stat, options));
       });
     }
     function sync(path11, options) {
-      return checkStat(fs9.statSync(path11), options);
+      return checkStat(fs10.statSync(path11), options);
     }
     function checkStat(stat, options) {
       return stat.isFile() && checkMode(stat, options);
@@ -101,7 +101,7 @@ var require_mode = __commonJS({
 // node_modules/isexe/index.js
 var require_isexe = __commonJS({
   "node_modules/isexe/index.js"(exports2, module2) {
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     var core;
     if (process.platform === "win32" || global.TESTING_WINDOWS) {
       core = require_windows();
@@ -1989,7 +1989,7 @@ var require_processor = __commonJS({
     "use strict";
     var spawn = require("child_process").spawn;
     var path11 = require("path");
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     var async = require_async();
     var utils = require_utils();
     function runFfprobe(command) {
@@ -2385,7 +2385,7 @@ var require_processor = __commonJS({
 var require_capabilities = __commonJS({
   "node_modules/fluent-ffmpeg/lib/capabilities.js"(exports2, module2) {
     "use strict";
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     var path11 = require("path");
     var async = require_async();
     var utils = require_utils();
@@ -2424,7 +2424,7 @@ var require_capabilities = __commonJS({
           // Try FFMPEG_PATH
           function(cb) {
             if (process.env.FFMPEG_PATH) {
-              fs9.exists(process.env.FFMPEG_PATH, function(exists) {
+              fs10.exists(process.env.FFMPEG_PATH, function(exists) {
                 if (exists) {
                   cb(null, process.env.FFMPEG_PATH);
                 } else {
@@ -2461,7 +2461,7 @@ var require_capabilities = __commonJS({
           // Try FFPROBE_PATH
           function(cb) {
             if (process.env.FFPROBE_PATH) {
-              fs9.exists(process.env.FFPROBE_PATH, function(exists) {
+              fs10.exists(process.env.FFPROBE_PATH, function(exists) {
                 cb(null, exists ? process.env.FFPROBE_PATH : "");
               });
             } else {
@@ -2488,7 +2488,7 @@ var require_capabilities = __commonJS({
               } else if (ffmpeg4.length) {
                 var name = utils.isWindows ? "ffprobe.exe" : "ffprobe";
                 var ffprobe2 = path11.join(path11.dirname(ffmpeg4), name);
-                fs9.exists(ffprobe2, function(exists) {
+                fs10.exists(ffprobe2, function(exists) {
                   cb(null, exists ? ffprobe2 : "");
                 });
               } else {
@@ -2512,7 +2512,7 @@ var require_capabilities = __commonJS({
           // Try FLVMETA_PATH
           function(cb) {
             if (process.env.FLVMETA_PATH) {
-              fs9.exists(process.env.FLVMETA_PATH, function(exists) {
+              fs10.exists(process.env.FLVMETA_PATH, function(exists) {
                 cb(null, exists ? process.env.FLVMETA_PATH : "");
               });
             } else {
@@ -2525,7 +2525,7 @@ var require_capabilities = __commonJS({
               return cb(null, flvtool);
             }
             if (process.env.FLVTOOL2_PATH) {
-              fs9.exists(process.env.FLVTOOL2_PATH, function(exists) {
+              fs10.exists(process.env.FLVTOOL2_PATH, function(exists) {
                 cb(null, exists ? process.env.FLVTOOL2_PATH : "");
               });
             } else {
@@ -2985,7 +2985,7 @@ var require_ffprobe = __commonJS({
 var require_recipes = __commonJS({
   "node_modules/fluent-ffmpeg/lib/recipes.js"(exports2, module2) {
     "use strict";
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     var path11 = require("path");
     var PassThrough = require("stream").PassThrough;
     var async = require_async();
@@ -3185,9 +3185,9 @@ var require_recipes = __commonJS({
           },
           // Create output directory
           function createDirectory(filenames, next) {
-            fs9.exists(config.folder, function(exists) {
+            fs10.exists(config.folder, function(exists) {
               if (!exists) {
-                fs9.mkdir(config.folder, function(err) {
+                fs10.mkdir(config.folder, function(err) {
                   if (err) {
                     next(err);
                   } else {
@@ -3400,10 +3400,10 @@ var require_fluent_ffmpeg2 = __commonJS({
 // node_modules/@ffmpeg-installer/ffmpeg/lib/verify-file.js
 var require_verify_file = __commonJS({
   "node_modules/@ffmpeg-installer/ffmpeg/lib/verify-file.js"(exports2, module2) {
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     function verifyFile(file) {
       try {
-        var stats = fs9.statSync(file);
+        var stats = fs10.statSync(file);
         return stats.isFile();
       } catch (ignored) {
         return false;
@@ -3515,10 +3515,10 @@ var require_ffmpeg = __commonJS({
 // node_modules/@ffprobe-installer/ffprobe/lib/verify-file.js
 var require_verify_file2 = __commonJS({
   "node_modules/@ffprobe-installer/ffprobe/lib/verify-file.js"(exports2, module2) {
-    var fs9 = require("node:fs");
+    var fs10 = require("node:fs");
     function verifyFile(file) {
       try {
-        const stats = fs9.statSync(file);
+        const stats = fs10.statSync(file);
         return stats.isFile();
       } catch {
         return false;
@@ -3714,27 +3714,27 @@ var require_process = __commonJS({
 var require_filesystem = __commonJS({
   "node_modules/detect-libc/lib/filesystem.js"(exports2, module2) {
     "use strict";
-    var fs9 = require("fs");
+    var fs10 = require("fs");
     var LDD_PATH = "/usr/bin/ldd";
     var SELF_PATH = "/proc/self/exe";
     var MAX_LENGTH = 2048;
     var readFileSync = (path11) => {
-      const fd = fs9.openSync(path11, "r");
+      const fd = fs10.openSync(path11, "r");
       const buffer = Buffer.alloc(MAX_LENGTH);
-      const bytesRead = fs9.readSync(fd, buffer, 0, MAX_LENGTH, 0);
-      fs9.close(fd, () => {
+      const bytesRead = fs10.readSync(fd, buffer, 0, MAX_LENGTH, 0);
+      fs10.close(fd, () => {
       });
       return buffer.subarray(0, bytesRead);
     };
     var readFile = (path11) => new Promise((resolve, reject) => {
-      fs9.open(path11, "r", (err, fd) => {
+      fs10.open(path11, "r", (err, fd) => {
         if (err) {
           reject(err);
         } else {
           const buffer = Buffer.alloc(MAX_LENGTH);
-          fs9.read(fd, buffer, 0, MAX_LENGTH, 0, (_, bytesRead) => {
+          fs10.read(fd, buffer, 0, MAX_LENGTH, 0, (_, bytesRead) => {
             resolve(buffer.subarray(0, bytesRead));
-            fs9.close(fd, () => {
+            fs10.close(fd, () => {
             });
           });
         }
@@ -10171,7 +10171,7 @@ var require_lib = __commonJS({
 });
 
 // src/main/index.ts
-var import_electron11 = require("electron");
+var import_electron12 = require("electron");
 var import_fluent_ffmpeg3 = __toESM(require_fluent_ffmpeg2());
 
 // src/main/utils/paths.ts
@@ -10216,6 +10216,7 @@ function getWorkerPath() {
 var import_better_sqlite3 = __toESM(require("better-sqlite3"));
 var import_path2 = __toESM(require("path"));
 var import_fs = __toESM(require("fs"));
+var import_crypto = __toESM(require("crypto"));
 var DatabaseManager = class {
   constructor(dataDir) {
     if (!import_fs.default.existsSync(dataDir)) {
@@ -10258,6 +10259,34 @@ var DatabaseManager = class {
     `);
     this.db.exec(`
       CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name)
+    `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS playlists (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        createdAt INTEGER NOT NULL
+      )
+    `);
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS playlist_media (
+        playlistId TEXT NOT NULL,
+        mediaId TEXT NOT NULL,
+        sortOrder INTEGER NOT NULL DEFAULT 0,
+        addedAt INTEGER NOT NULL,
+        PRIMARY KEY (playlistId, mediaId),
+        FOREIGN KEY (playlistId) REFERENCES playlists(id) ON DELETE CASCADE,
+        FOREIGN KEY (mediaId) REFERENCES media(id) ON DELETE CASCADE
+      )
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlists_sortOrder ON playlists(sortOrder)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlist_media_playlistId ON playlist_media(playlistId)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_playlist_media_mediaId ON playlist_media(mediaId)
     `);
   }
   addMedia(media) {
@@ -10392,12 +10421,165 @@ var DatabaseManager = class {
       this.db.close();
     }
   }
+  // ========== 播放列表相关方法 ==========
+  // 获取所有播放列表
+  getAllPlaylists() {
+    const stmt = this.db.prepare(`
+      SELECT id, name, sortOrder, createdAt
+      FROM playlists
+      ORDER BY sortOrder ASC, createdAt ASC
+    `);
+    const playlists = [];
+    for (const row of stmt.iterate()) {
+      playlists.push(row);
+    }
+    return playlists;
+  }
+  // 获取单个播放列表（包含媒体）
+  getPlaylist(id) {
+    const playlistStmt = this.db.prepare(`
+      SELECT id, name, sortOrder, createdAt
+      FROM playlists
+      WHERE id = ?
+    `);
+    const playlist = playlistStmt.get(id);
+    if (!playlist) return null;
+    const mediaStmt = this.db.prepare(`
+      SELECT mediaId
+      FROM playlist_media
+      WHERE playlistId = ?
+      ORDER BY sortOrder ASC, addedAt ASC
+    `);
+    const mediaIds = [];
+    for (const row of mediaStmt.iterate(id)) {
+      mediaIds.push(row.mediaId);
+    }
+    return {
+      ...playlist,
+      mediaIds
+    };
+  }
+  // 创建播放列表
+  createPlaylist(name) {
+    const id = import_crypto.default.randomUUID();
+    const createdAt = Date.now();
+    const maxOrderStmt = this.db.prepare(`
+      SELECT MAX(sortOrder) as maxOrder FROM playlists
+    `);
+    const result = maxOrderStmt.get();
+    const sortOrder = (result.maxOrder ?? 0) + 1;
+    const stmt = this.db.prepare(`
+      INSERT INTO playlists (id, name, sortOrder, createdAt)
+      VALUES (?, ?, ?, ?)
+    `);
+    stmt.run(id, name, sortOrder, createdAt);
+    return { id, name, sortOrder, createdAt };
+  }
+  // 重命名播放列表
+  renamePlaylist(id, name) {
+    const stmt = this.db.prepare(`
+      UPDATE playlists SET name = ? WHERE id = ?
+    `);
+    const result = stmt.run(name, id);
+    return result.changes > 0;
+  }
+  // 删除播放列表
+  deletePlaylist(id) {
+    const stmt = this.db.prepare(`
+      DELETE FROM playlists WHERE id = ?
+    `);
+    const result = stmt.run(id);
+    return result.changes > 0;
+  }
+  // 更新播放列表排序
+  updatePlaylistOrder(orders) {
+    const stmt = this.db.prepare(`
+      UPDATE playlists SET sortOrder = ? WHERE id = ?
+    `);
+    const updateMany = this.db.transaction((items) => {
+      for (const item of items) {
+        stmt.run(item.sortOrder, item.id);
+      }
+    });
+    updateMany(orders);
+    return true;
+  }
+  // 添加媒体到播放列表
+  addMediaToPlaylist(playlistId, mediaIds) {
+    const getMaxOrderStmt = this.db.prepare(`
+      SELECT MAX(sortOrder) as maxOrder
+      FROM playlist_media
+      WHERE playlistId = ?
+    `);
+    const result = getMaxOrderStmt.get(playlistId);
+    let currentOrder = (result.maxOrder ?? 0) + 1;
+    const stmt = this.db.prepare(`
+      INSERT OR IGNORE INTO playlist_media (playlistId, mediaId, sortOrder, addedAt)
+      VALUES (?, ?, ?, ?)
+    `);
+    const addMany = this.db.transaction((ids) => {
+      const now = Date.now();
+      for (const mediaId of ids) {
+        stmt.run(playlistId, mediaId, currentOrder++, now);
+      }
+    });
+    addMany(mediaIds);
+    return true;
+  }
+  // 从播放列表移除媒体
+  removeMediaFromPlaylist(playlistId, mediaIds) {
+    const stmt = this.db.prepare(`
+      DELETE FROM playlist_media
+      WHERE playlistId = ? AND mediaId = ?
+    `);
+    const removeMany = this.db.transaction((ids) => {
+      for (const mediaId of ids) {
+        stmt.run(playlistId, mediaId);
+      }
+    });
+    removeMany(mediaIds);
+    return true;
+  }
+  // 更新播放列表内媒体排序
+  updatePlaylistMediaOrder(playlistId, mediaIds) {
+    const stmt = this.db.prepare(`
+      UPDATE playlist_media SET sortOrder = ?
+      WHERE playlistId = ? AND mediaId = ?
+    `);
+    const updateMany = this.db.transaction((ids) => {
+      ids.forEach((mediaId, index) => {
+        stmt.run(index, playlistId, mediaId);
+      });
+    });
+    updateMany(mediaIds);
+    return true;
+  }
+  // 获取播放列表中的所有媒体
+  getPlaylistMedia(playlistId) {
+    const stmt = this.db.prepare(`
+      SELECT m.id, m.path, m.filename, m.type, m.size, m.width, m.height,
+             m.duration, m.thumbnail, m.createdAt, m.modifiedAt
+      FROM media m
+      INNER JOIN playlist_media pm ON m.id = pm.mediaId
+      WHERE pm.playlistId = ?
+      ORDER BY pm.sortOrder ASC, pm.addedAt ASC
+    `);
+    const mediaList = [];
+    for (const row of stmt.iterate(playlistId)) {
+      mediaList.push({
+        ...row,
+        tags: this.getTags(row.id)
+      });
+    }
+    return mediaList;
+  }
 };
 
 // src/main/utils/config.ts
 var import_fs2 = __toESM(require("fs"));
 var import_path3 = __toESM(require("path"));
 var CONFIG_FILE = "config.json";
+var SECURE_CONFIG_FILE = ".config.json";
 function getConfig() {
   const configPath = import_path3.default.join(process.cwd(), CONFIG_FILE);
   try {
@@ -10415,6 +10597,25 @@ function saveConfig(config) {
     import_fs2.default.writeFileSync(configPath, JSON.stringify(config, null, 2));
   } catch (e) {
     console.error("\u4FDD\u5B58\u914D\u7F6E\u5931\u8D25:", e);
+  }
+}
+function getSecureConfig(dataDir) {
+  const configPath = import_path3.default.join(dataDir, SECURE_CONFIG_FILE);
+  try {
+    if (import_fs2.default.existsSync(configPath)) {
+      return JSON.parse(import_fs2.default.readFileSync(configPath, "utf-8"));
+    }
+  } catch (e) {
+    console.error("\u8BFB\u53D6\u5B89\u5168\u914D\u7F6E\u5931\u8D25:", e);
+  }
+  return {};
+}
+function saveSecureConfig(dataDir, config) {
+  const configPath = import_path3.default.join(dataDir, SECURE_CONFIG_FILE);
+  try {
+    import_fs2.default.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  } catch (e) {
+    console.error("\u4FDD\u5B58\u5B89\u5168\u914D\u7F6E\u5931\u8D25:", e);
   }
 }
 function getDefaultDataDir() {
@@ -10444,8 +10645,8 @@ async function createMainWindow(isDev) {
     minWidth: 1e3,
     minHeight: 600,
     center: true,
-    frame: true,
-    // 临时启用边框以便调试
+    frame: false,
+    // 使用自定义标题栏，隐藏原生边框
     backgroundColor: "#202020",
     webPreferences: {
       nodeIntegration: false,
@@ -10495,7 +10696,7 @@ var import_path7 = __toESM(require("path"));
 // src/main/utils/fileProcessor.ts
 var import_fs5 = __toESM(require("fs"));
 var import_path6 = __toESM(require("path"));
-var import_crypto2 = __toESM(require("crypto"));
+var import_crypto3 = __toESM(require("crypto"));
 var import_fluent_ffmpeg2 = __toESM(require_fluent_ffmpeg2());
 var import_sharp2 = __toESM(require_lib());
 
@@ -10503,25 +10704,39 @@ var import_sharp2 = __toESM(require_lib());
 var import_sharp = __toESM(require_lib());
 var import_path5 = __toESM(require("path"));
 var import_fs4 = __toESM(require("fs"));
-var import_crypto = __toESM(require("crypto"));
+var import_crypto2 = __toESM(require("crypto"));
 var import_fluent_ffmpeg = __toESM(require_fluent_ffmpeg2());
 var import_ffmpeg2 = __toESM(require_ffmpeg());
-var THUMBNAIL_DIR = import_path5.default.join(process.cwd(), "thumbnails");
 var THUMBNAIL_SIZE = 200;
+var THUMBNAIL_EXT = ".thumb";
+function getThumbnailDir() {
+  const dataDir = getDefaultDataDir();
+  const thumbnailDir = import_path5.default.join(dataDir, ".thumbnails");
+  return thumbnailDir;
+}
 function ensureThumbnailDir() {
-  if (!import_fs4.default.existsSync(THUMBNAIL_DIR)) {
-    import_fs4.default.mkdirSync(THUMBNAIL_DIR, { recursive: true });
+  const thumbnailDir = getThumbnailDir();
+  if (!import_fs4.default.existsSync(thumbnailDir)) {
+    import_fs4.default.mkdirSync(thumbnailDir, { recursive: true });
   }
 }
+function normalizePath(filePath) {
+  return filePath.replace(/\\/g, "/");
+}
+function toWindowsPath(filePath) {
+  return filePath.replace(/\//g, "\\");
+}
 function getThumbnailPath(filePath) {
-  const hash = import_crypto.default.createHash("md5").update(filePath).digest("hex");
-  return import_path5.default.join(THUMBNAIL_DIR, `${hash}.jpg`);
+  const normalizedPath = normalizePath(filePath);
+  const hash = import_crypto2.default.createHash("md5").update(normalizedPath).digest("hex");
+  return import_path5.default.join(getThumbnailDir(), `${hash}${THUMBNAIL_EXT}`);
 }
 function hasValidThumbnail(filePath) {
   const thumbnailPath = getThumbnailPath(filePath);
   if (!import_fs4.default.existsSync(thumbnailPath)) return false;
+  const windowsPath = process.platform === "win32" ? toWindowsPath(filePath) : filePath;
   try {
-    const originalStat = import_fs4.default.statSync(filePath);
+    const originalStat = import_fs4.default.statSync(windowsPath);
     const thumbnailStat = import_fs4.default.statSync(thumbnailPath);
     return thumbnailStat.mtime >= originalStat.mtime;
   } catch {
@@ -10535,7 +10750,8 @@ async function generateImageThumbnail(filePath) {
     if (hasValidThumbnail(filePath)) {
       return `file://${thumbnailPath.replace(/\\/g, "/")}`;
     }
-    await (0, import_sharp.default)(filePath).resize(THUMBNAIL_SIZE, null, {
+    const windowsPath = process.platform === "win32" ? toWindowsPath(filePath) : filePath;
+    await (0, import_sharp.default)(windowsPath).resize(THUMBNAIL_SIZE, null, {
       withoutEnlargement: true,
       fit: "inside"
     }).jpeg({
@@ -10555,15 +10771,15 @@ async function generateVideoThumbnail(filePath) {
     if (hasValidThumbnail(filePath)) {
       return `file://${thumbnailPath.replace(/\\/g, "/")}`;
     }
+    const tempJpgPath = thumbnailPath.slice(0, -THUMBNAIL_EXT.length) + ".jpg";
+    const windowsPath = process.platform === "win32" ? toWindowsPath(filePath) : filePath;
     import_fluent_ffmpeg.default.setFfmpegPath(import_ffmpeg2.path);
     await new Promise((resolve, reject) => {
-      (0, import_fluent_ffmpeg.default)(filePath).screenshots({
-        timestamps: ["00:00:01"],
-        filename: import_path5.default.basename(thumbnailPath),
-        folder: THUMBNAIL_DIR,
-        size: `${THUMBNAIL_SIZE}x?`
-      }).on("end", () => resolve()).on("error", (err) => reject(err));
+      (0, import_fluent_ffmpeg.default)(windowsPath).seekInput("00:00:01").frames(1).outputOptions("-vf", `scale=${THUMBNAIL_SIZE}:-1`).outputOptions("-q:v", "2").output(tempJpgPath).on("end", () => resolve()).on("error", (err) => reject(err)).run();
     });
+    if (import_fs4.default.existsSync(tempJpgPath)) {
+      import_fs4.default.renameSync(tempJpgPath, thumbnailPath);
+    }
     return `file://${thumbnailPath.replace(/\\/g, "/")}`;
   } catch (error) {
     console.error("\u751F\u6210\u89C6\u9891\u7F29\u7565\u56FE\u5931\u8D25:", filePath, error);
@@ -10572,15 +10788,16 @@ async function generateVideoThumbnail(filePath) {
 }
 function cleanupThumbnails(validFilePaths) {
   try {
-    if (!import_fs4.default.existsSync(THUMBNAIL_DIR)) return;
+    const thumbnailDir = getThumbnailDir();
+    if (!import_fs4.default.existsSync(thumbnailDir)) return;
     const validHashes = new Set(
-      validFilePaths.map((p) => import_crypto.default.createHash("md5").update(p).digest("hex"))
+      validFilePaths.map((p) => import_crypto2.default.createHash("md5").update(normalizePath(p)).digest("hex"))
     );
-    const files = import_fs4.default.readdirSync(THUMBNAIL_DIR);
+    const files = import_fs4.default.readdirSync(thumbnailDir);
     for (const file of files) {
-      const hash = import_path5.default.basename(file, ".jpg");
+      const hash = file.endsWith(THUMBNAIL_EXT) ? import_path5.default.basename(file, THUMBNAIL_EXT) : import_path5.default.basename(file, ".jpg");
       if (!validHashes.has(hash)) {
-        import_fs4.default.unlinkSync(import_path5.default.join(THUMBNAIL_DIR, file));
+        import_fs4.default.unlinkSync(import_path5.default.join(thumbnailDir, file));
         console.log("\u6E05\u7406\u8FC7\u671F\u7F29\u7565\u56FE:", file);
       }
     }
@@ -10645,8 +10862,8 @@ async function processFileExternal(filePath) {
     }
   }
   return {
-    id: import_crypto2.default.createHash("md5").update(filePath).digest("hex"),
-    path: filePath,
+    id: import_crypto3.default.createHash("md5").update(filePath).digest("hex"),
+    path: filePath.replace(/\\/g, "/"),
     filename: import_path6.default.basename(filePath),
     type,
     size: stats.size,
@@ -10670,18 +10887,41 @@ var MediaScanner = class {
     for (const folderPath of folderPaths) {
       await this.collectFiles(folderPath, filePaths);
     }
+    if (filePaths.length === 0) {
+      this.onProgress?.({
+        scanned: 0,
+        total: 0,
+        currentFolder: "",
+        batch: [],
+        isComplete: true
+      });
+      return [];
+    }
     const results = [];
-    const batchSize = 50;
+    const batchSize = 20;
     for (let i = 0; i < filePaths.length; i += batchSize) {
       const batch = filePaths.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map((filePath) => this.processFile(filePath)));
-      results.push(...batchResults.filter((m) => m !== null));
+      const batchResults = [];
+      for (const filePath of batch) {
+        try {
+          const media = await this.processFile(filePath);
+          if (media) {
+            batchResults.push(media);
+            results.push(media);
+          }
+        } catch (error) {
+          console.error(`\u5904\u7406\u6587\u4EF6\u5931\u8D25: ${filePath}`, error);
+        }
+      }
       const currentFile = filePaths[i];
+      const isLastBatch = i + batchSize >= filePaths.length;
       if (this.onProgress && currentFile) {
         this.onProgress({
-          scanned: Math.min(i + batchSize, filePaths.length),
+          scanned: Math.min(i + batch.length, filePaths.length),
           total: filePaths.length,
-          currentFolder: import_path7.default.dirname(currentFile)
+          currentFolder: import_path7.default.dirname(currentFile),
+          batch: batchResults,
+          isComplete: isLastBatch
         });
       }
       await new Promise((resolve) => setImmediate(resolve));
@@ -10825,6 +11065,8 @@ function registerMediaHandlers(dbManager) {
         message: "\u6B63\u5728\u626B\u63CF\u6587\u4EF6\u5939...",
         percent: 0
       });
+      const allFiles = [];
+      const processedPaths = /* @__PURE__ */ new Set();
       const scanner = new MediaScanner((progress) => {
         const percent = Math.round(progress.scanned / progress.total * 100);
         event.sender.send("scan-progress", {
@@ -10832,24 +11074,35 @@ function registerMediaHandlers(dbManager) {
           message: `\u6B63\u5728\u5904\u7406: ${progress.scanned}/${progress.total}`,
           percent
         });
-      });
-      const allFiles = await scanner.scan(result.filePaths);
-      const uniqueFiles = /* @__PURE__ */ new Map();
-      for (const file of allFiles) {
-        if (!uniqueFiles.has(file.path)) {
-          uniqueFiles.set(file.path, file);
+        if (progress.batch.length > 0) {
+          const newBatch = progress.batch.filter((file) => {
+            if (processedPaths.has(file.path)) {
+              return false;
+            }
+            processedPaths.add(file.path);
+            return true;
+          });
+          if (newBatch.length > 0) {
+            allFiles.push(...newBatch);
+            for (const file of newBatch) {
+              dbManager.addMedia(file);
+            }
+            event.sender.send("scan-batch", {
+              files: newBatch,
+              isComplete: progress.isComplete
+            });
+          }
         }
-      }
-      const finalFiles = Array.from(uniqueFiles.values());
-      for (const f of finalFiles) {
-        dbManager.addMedia(f);
-      }
-      event.sender.send("scan-progress", {
-        status: "complete",
-        message: `\u5B8C\u6210\uFF0C\u5171\u6DFB\u52A0 ${finalFiles.length} \u4E2A\u6587\u4EF6`,
-        percent: 100
+        if (progress.isComplete) {
+          event.sender.send("scan-progress", {
+            status: "complete",
+            message: `\u5B8C\u6210\uFF0C\u5171\u6DFB\u52A0 ${allFiles.length} \u4E2A\u6587\u4EF6`,
+            percent: 100
+          });
+        }
       });
-      return finalFiles;
+      await scanner.scan(result.filePaths);
+      return allFiles;
     } catch (error) {
       console.error("\u6DFB\u52A0\u6587\u4EF6\u5939\u5931\u8D25:", error);
       event.sender.send("scan-progress", {
@@ -10871,6 +11124,11 @@ function registerMediaHandlers(dbManager) {
         message: "\u6B63\u5728\u5237\u65B0\u6587\u4EF6\u5939...",
         percent: 0
       });
+      const existingMedia = dbManager.getAllMedia();
+      const existingPaths = new Set(existingMedia.map((m) => m.path));
+      const allFiles = [];
+      let addedCount = 0;
+      const processedPaths = /* @__PURE__ */ new Set();
       const scanner = new MediaScanner((progress) => {
         const percent = Math.round(progress.scanned / progress.total * 100);
         event.sender.send("scan-progress", {
@@ -10878,30 +11136,38 @@ function registerMediaHandlers(dbManager) {
           message: `\u6B63\u5728\u5904\u7406: ${progress.scanned}/${progress.total}`,
           percent
         });
-      });
-      const allFiles = await scanner.scan(folderPaths);
-      const uniqueFiles = /* @__PURE__ */ new Map();
-      for (const file of allFiles) {
-        if (!uniqueFiles.has(file.path)) {
-          uniqueFiles.set(file.path, file);
+        if (progress.batch.length > 0) {
+          const newBatch = progress.batch.filter((file) => {
+            if (processedPaths.has(file.path)) {
+              return false;
+            }
+            processedPaths.add(file.path);
+            return true;
+          });
+          if (newBatch.length > 0) {
+            allFiles.push(...newBatch);
+            for (const file of newBatch) {
+              if (!existingPaths.has(file.path)) {
+                dbManager.addMedia(file);
+                addedCount++;
+              }
+            }
+            event.sender.send("scan-batch", {
+              files: newBatch,
+              isComplete: progress.isComplete
+            });
+          }
         }
-      }
-      const finalFiles = Array.from(uniqueFiles.values());
-      const existingMedia = dbManager.getAllMedia();
-      const existingPaths = new Set(existingMedia.map((m) => m.path));
-      let addedCount = 0;
-      for (const f of finalFiles) {
-        if (!existingPaths.has(f.path)) {
-          dbManager.addMedia(f);
-          addedCount++;
+        if (progress.isComplete) {
+          event.sender.send("scan-progress", {
+            status: "complete",
+            message: `\u5B8C\u6210\uFF0C\u65B0\u589E ${addedCount} \u4E2A\u6587\u4EF6`,
+            percent: 100
+          });
         }
-      }
-      event.sender.send("scan-progress", {
-        status: "complete",
-        message: `\u5B8C\u6210\uFF0C\u65B0\u589E ${addedCount} \u4E2A\u6587\u4EF6`,
-        percent: 100
       });
-      return finalFiles;
+      await scanner.scan(folderPaths);
+      return allFiles;
     } catch (error) {
       console.error("\u5237\u65B0\u6587\u4EF6\u5939\u5931\u8D25:", error);
       event.sender.send("scan-progress", {
@@ -11029,6 +11295,18 @@ function registerSettingsHandlers() {
     if (result.canceled) return null;
     return result.filePaths[0] || null;
   });
+  import_electron5.ipcMain.handle("get-lock-password", () => {
+    const dataDir = getDefaultDataDir();
+    const secureConfig = getSecureConfig(dataDir);
+    return secureConfig.lockPassword || "";
+  });
+  import_electron5.ipcMain.handle("set-lock-password", (_, password) => {
+    const dataDir = getDefaultDataDir();
+    const secureConfig = getSecureConfig(dataDir);
+    secureConfig.lockPassword = password;
+    saveSecureConfig(dataDir, secureConfig);
+    return { success: true };
+  });
 }
 
 // src/main/ipc/video.ts
@@ -11112,16 +11390,16 @@ async function createPlaylistWindow() {
   playlistWindow = new import_electron7.BrowserWindow({
     width: 400,
     height: 800,
-    minWidth: 300,
+    minWidth: 250,
     minHeight: 500,
-    title: "\u64AD\u653E\u5217\u8868",
+    title: "\u5A92\u4F53\u5E93",
     frame: false,
     titleBarStyle: "hidden",
     backgroundColor: "#202020",
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: import_path10.default.resolve(__dirname, "../preload.js"),
+      preload: import_path10.default.resolve(__dirname, "preload.js"),
       webSecurity: !isDev
     },
     show: false
@@ -11167,7 +11445,7 @@ function registerWindowHandlers() {
     const window = import_electron8.BrowserWindow.fromWebContents(event.sender);
     window?.close();
   });
-  import_electron8.ipcMain.handle("create-playlist-window", async (event) => {
+  import_electron8.ipcMain.handle("create-media-library-window", async (event) => {
     try {
       const window = await createPlaylistWindow();
       const sender = event.sender;
@@ -11178,7 +11456,7 @@ function registerWindowHandlers() {
       });
       return true;
     } catch (error) {
-      console.error("\u521B\u5EFA\u64AD\u653E\u5217\u8868\u7A97\u53E3\u5931\u8D25:", error);
+      console.error("\u521B\u5EFA\u5A92\u4F53\u5E93\u7A97\u53E3\u5931\u8D25:", error);
       return false;
     }
   });
@@ -11186,16 +11464,13 @@ function registerWindowHandlers() {
     closePlaylistWindow();
     return true;
   });
-  import_electron8.ipcMain.handle(
-    "sync-playlist-data",
-    (_event, data) => {
-      const playlistWindow2 = getPlaylistWindow();
-      if (playlistWindow2 && !playlistWindow2.isDestroyed()) {
-        playlistWindow2.webContents.send("sync-playlist-data", data);
-      }
-      return true;
+  import_electron8.ipcMain.handle("sync-playlist-data", (_event, data) => {
+    const playlistWindow2 = getPlaylistWindow();
+    if (playlistWindow2 && !playlistWindow2.isDestroyed()) {
+      playlistWindow2.webContents.send("sync-playlist-data", data);
     }
-  );
+    return true;
+  });
   import_electron8.ipcMain.on("playlist-action", (_event, action) => {
     const mainWindow2 = getMainWindow();
     if (mainWindow2 && !mainWindow2.isDestroyed()) {
@@ -11222,6 +11497,91 @@ function registerWindowHandlers() {
   });
 }
 
+// src/main/ipc/playlist.ts
+var import_electron9 = require("electron");
+function registerPlaylistHandlers(dbManager) {
+  import_electron9.ipcMain.handle("get-all-playlists", () => {
+    try {
+      return dbManager.getAllPlaylists();
+    } catch (error) {
+      console.error("\u83B7\u53D6\u64AD\u653E\u5217\u8868\u5931\u8D25:", error);
+      return [];
+    }
+  });
+  import_electron9.ipcMain.handle("get-playlist", (_, id) => {
+    try {
+      return dbManager.getPlaylist(id);
+    } catch (error) {
+      console.error("\u83B7\u53D6\u64AD\u653E\u5217\u8868\u8BE6\u60C5\u5931\u8D25:", error);
+      return null;
+    }
+  });
+  import_electron9.ipcMain.handle("create-playlist", (_, name) => {
+    try {
+      return dbManager.createPlaylist(name);
+    } catch (error) {
+      console.error("\u521B\u5EFA\u64AD\u653E\u5217\u8868\u5931\u8D25:", error);
+      return null;
+    }
+  });
+  import_electron9.ipcMain.handle("rename-playlist", (_, id, name) => {
+    try {
+      return dbManager.renamePlaylist(id, name);
+    } catch (error) {
+      console.error("\u91CD\u547D\u540D\u64AD\u653E\u5217\u8868\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("delete-playlist", (_, id) => {
+    try {
+      return dbManager.deletePlaylist(id);
+    } catch (error) {
+      console.error("\u5220\u9664\u64AD\u653E\u5217\u8868\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("update-playlist-order", (_, orders) => {
+    try {
+      return dbManager.updatePlaylistOrder(orders);
+    } catch (error) {
+      console.error("\u66F4\u65B0\u64AD\u653E\u5217\u8868\u6392\u5E8F\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("add-media-to-playlist", (_, playlistId, mediaIds) => {
+    try {
+      return dbManager.addMediaToPlaylist(playlistId, mediaIds);
+    } catch (error) {
+      console.error("\u6DFB\u52A0\u5A92\u4F53\u5230\u64AD\u653E\u5217\u8868\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("remove-media-from-playlist", (_, playlistId, mediaIds) => {
+    try {
+      return dbManager.removeMediaFromPlaylist(playlistId, mediaIds);
+    } catch (error) {
+      console.error("\u4ECE\u64AD\u653E\u5217\u8868\u79FB\u9664\u5A92\u4F53\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("update-playlist-media-order", (_, playlistId, mediaIds) => {
+    try {
+      return dbManager.updatePlaylistMediaOrder(playlistId, mediaIds);
+    } catch (error) {
+      console.error("\u66F4\u65B0\u64AD\u653E\u5217\u8868\u5A92\u4F53\u6392\u5E8F\u5931\u8D25:", error);
+      return false;
+    }
+  });
+  import_electron9.ipcMain.handle("get-playlist-media", (_, playlistId) => {
+    try {
+      return dbManager.getPlaylistMedia(playlistId);
+    } catch (error) {
+      console.error("\u83B7\u53D6\u64AD\u653E\u5217\u8868\u5A92\u4F53\u5931\u8D25:", error);
+      return [];
+    }
+  });
+}
+
 // src/main/ipc/index.ts
 function registerAllHandlers(dbManager) {
   registerMediaHandlers(dbManager);
@@ -11229,10 +11589,11 @@ function registerAllHandlers(dbManager) {
   registerSettingsHandlers();
   registerVideoHandlers();
   registerWindowHandlers();
+  registerPlaylistHandlers(dbManager);
 }
 
 // src/main/utils/menu.ts
-var import_electron9 = require("electron");
+var import_electron10 = require("electron");
 function createApplicationMenu(window) {
   const template = [
     {
@@ -11257,7 +11618,7 @@ function createApplicationMenu(window) {
           label: "\u9000\u51FA",
           accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
           click: () => {
-            import_electron9.app.quit();
+            import_electron10.app.quit();
           }
         }
       ]
@@ -11314,7 +11675,7 @@ function createApplicationMenu(window) {
         {
           label: "\u5173\u4E8E",
           click: () => {
-            import_electron9.dialog.showMessageBox(window, {
+            import_electron10.dialog.showMessageBox(window, {
               type: "info",
               title: "\u5173\u4E8E\u5A92\u4F53\u7BA1\u7406\u5668",
               message: "\u5A92\u4F53\u7BA1\u7406\u5668",
@@ -11326,15 +11687,15 @@ function createApplicationMenu(window) {
       ]
     }
   ];
-  const menu = import_electron9.Menu.buildFromTemplate(template);
-  import_electron9.Menu.setApplicationMenu(menu);
+  const menu = import_electron10.Menu.buildFromTemplate(template);
+  import_electron10.Menu.setApplicationMenu(menu);
 }
 
 // src/main/utils/protocol.ts
-var import_electron10 = require("electron");
-var import_url = require("url");
+var import_electron11 = require("electron");
+var import_fs9 = __toESM(require("fs"));
 function registerSchemes() {
-  import_electron10.protocol.registerSchemesAsPrivileged([
+  import_electron11.protocol.registerSchemesAsPrivileged([
     {
       scheme: "media",
       privileges: {
@@ -11348,14 +11709,25 @@ function registerSchemes() {
   ]);
 }
 function registerProtocols() {
-  import_electron10.protocol.handle("media", (req) => {
-    const url = req.url.replace(/^media:\/\//, "");
-    const decodedUrl = decodeURIComponent(url);
-    let filePath = decodedUrl;
-    if (process.platform === "win32" && filePath.startsWith("/") && !filePath.startsWith("//")) {
-      filePath = filePath.slice(1);
+  import_electron11.protocol.registerFileProtocol("media", (request, callback) => {
+    let filePath = decodeURIComponent(request.url.replace(/^media:\/\//, ""));
+    if (process.platform === "win32") {
+      if (/^[a-zA-Z]\//.test(filePath) && !filePath.includes(":")) {
+        const driveLetter = filePath[0]?.toUpperCase() || "C";
+        const restOfPath = filePath.substring(2);
+        filePath = `${driveLetter}:/${restOfPath}`;
+      }
+      if (filePath.startsWith("/") && filePath[2] === ":") {
+        filePath = filePath.substring(1);
+      }
+      filePath = filePath.replace(/\//g, "\\");
     }
-    return import_electron10.net.fetch((0, import_url.pathToFileURL)(filePath).toString());
+    if (!import_fs9.default.existsSync(filePath)) {
+      console.error("[Protocol] File not found:", filePath);
+      callback({ error: -6 });
+      return;
+    }
+    callback({ path: filePath });
   });
 }
 
@@ -11365,7 +11737,7 @@ function initializeFfmpeg() {
   import_fluent_ffmpeg3.default.setFfmpegPath(getFfmpegPath());
   import_fluent_ffmpeg3.default.setFfprobePath(getFfprobePath());
 }
-import_electron11.app.whenReady().then(async () => {
+import_electron12.app.whenReady().then(async () => {
   initializeFfmpeg();
   registerProtocols();
   let dbManager = null;
@@ -11392,12 +11764,12 @@ import_electron11.app.whenReady().then(async () => {
   });
   console.log("[Main] App initialized");
 }).catch(console.error);
-import_electron11.app.on("before-quit", async () => {
+import_electron12.app.on("before-quit", async () => {
   await cleanupVideoWorkers();
   closePlaylistWindow();
 });
-import_electron11.app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") import_electron11.app.quit();
+import_electron12.app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") import_electron12.app.quit();
 });
 /*! Bundled license information:
 

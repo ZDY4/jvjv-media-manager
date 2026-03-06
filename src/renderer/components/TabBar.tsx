@@ -10,6 +10,7 @@ import {
   Field,
   Input,
   makeStyles,
+  mergeClasses,
   tokens,
 } from '@fluentui/react-components';
 import type { Playlist } from '../../shared/types';
@@ -245,7 +246,10 @@ export const TabBar: React.FC<TabBarProps> = ({
         >
           {/* 媒体库固定Tab */}
           <div
-            className={`${styles.tabItem} ${activeTabId === 'media-library' ? styles.tabItemActive : styles.tabItemIdle}`}
+            className={mergeClasses(
+              styles.tabItem,
+              activeTabId === 'media-library' ? styles.tabItemActive : styles.tabItemIdle
+            )}
             onClick={() => onTabChange('media-library')}
             onContextMenu={e => handleTabContextMenu(e, null)}
           >
@@ -285,9 +289,12 @@ export const TabBar: React.FC<TabBarProps> = ({
               onDragLeave={handleDragLeave}
               onDrop={e => handleDrop(e, playlist.id)}
               onDragEnd={handleDragEnd}
-              className={`${styles.tabItem} ${activeTabId === playlist.id ? styles.tabItemActive : styles.tabItemIdle} ${dragOverTabId === playlist.id ? styles.tabDragOver : ''} ${
+              className={mergeClasses(
+                styles.tabItem,
+                activeTabId === playlist.id ? styles.tabItemActive : styles.tabItemIdle,
+                dragOverTabId === playlist.id ? styles.tabDragOver : '',
                 isDragging && draggedTabId === playlist.id ? 'opacity-50' : ''
-              }`}
+              )}
               onClick={() => onTabChange(playlist.id)}
               onContextMenu={e => handleTabContextMenu(e, playlist.id)}
             >
@@ -332,7 +339,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                 appearance="subtle"
                 size="small"
                 onClick={handleDeleteClick}
-                className={`${styles.contextItem} ${styles.contextDanger}`}
+                className={mergeClasses(styles.contextItem, styles.contextDanger)}
               >
                 删除
               </Button>

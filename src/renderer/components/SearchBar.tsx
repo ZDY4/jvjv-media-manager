@@ -192,7 +192,10 @@ const useStyles = makeStyles({
   },
   tag: {
     color: tokens.colorBrandForeground1,
-    borderColor: colorMix(tokens.colorBrandStroke1, 0.58),
+    borderTopColor: colorMix(tokens.colorBrandStroke1, 0.58),
+    borderRightColor: colorMix(tokens.colorBrandStroke1, 0.58),
+    borderBottomColor: colorMix(tokens.colorBrandStroke1, 0.58),
+    borderLeftColor: colorMix(tokens.colorBrandStroke1, 0.58),
     backgroundColor: colorMix(tokens.colorBrandBackground2, 0.38),
   },
 });
