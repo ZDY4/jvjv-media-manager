@@ -257,16 +257,22 @@ export const Sidebar: React.FC = () => {
     // 显示自定义菜单
     const menu = document.createElement('div');
     menu.className =
-      'fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[160px]';
+      'fixed bg-[#252525]/95 backdrop-blur-md border border-[#4A4A4A] rounded-lg shadow-2xl py-1 z-50 min-w-[188px]';
     menu.style.left = `${e.clientX}px`;
     menu.style.top = `${e.clientY}px`;
 
     menu.innerHTML = `
-      <button class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2" id="add-files">
-        📄 添加文件
+      <button class="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2" id="add-files">
+        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7 3h7l5 5v13a1 1 0 01-1 1H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+        </svg>
+        添加文件
       </button>
-      <button class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2" id="add-folder">
-        📁 添加文件夹
+      <button class="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2" id="add-folder">
+        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3 7.5a1.5 1.5 0 011.5-1.5h4l1.6 1.6a1.5 1.5 0 001.06.44H19.5A1.5 1.5 0 0121 9.54V18a2 2 0 01-2 2H5a2 2 0 01-2-2V7.5z" />
+        </svg>
+        添加文件夹
       </button>
     `;
 

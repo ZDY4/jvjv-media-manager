@@ -29,6 +29,46 @@ interface ContextMenuState {
   media: MediaFile | null;
 }
 
+const OpenFolderIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.7}
+      d="M3 7.5a1.5 1.5 0 011.5-1.5h4l1.6 1.6a1.5 1.5 0 001.06.44H19.5A1.5 1.5 0 0121 9.54V18a2 2 0 01-2 2H5a2 2 0 01-2-2V7.5z"
+    />
+  </svg>
+);
+
+const PlaylistIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 7h16M4 12h10M4 17h8m8-3v4m0 0l2-2m-2 2l-2-2" />
+  </svg>
+);
+
+const TagIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.7}
+      d="M20 12l-8 8-9-9V4h7l10 8zM7.5 7.5h.01"
+    />
+  </svg>
+);
+
+const RemoveIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 6h16m-3 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V6m3-2h4m-2 8v6" />
+  </svg>
+);
+
+const DeleteIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 7h16m-3 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7m3-3h4m-5 8l1 6m4-6l-1 6" />
+  </svg>
+);
+
 export const MediaGrid: React.FC<MediaGridProps> = ({
   mediaList,
   selectedIds = new Set(),
@@ -256,42 +296,47 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
         {contextMenu.visible && contextMenu.media && (
           <div
             ref={menuRef}
-            className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[180px]"
+            className="fixed bg-[#252525]/95 backdrop-blur-md border border-[#4A4A4A] rounded-lg shadow-2xl py-1 z-50 min-w-[188px]"
             style={{ left: contextMenu.x, top: contextMenu.y }}
             onClick={e => e.stopPropagation()}
           >
             <button
               onClick={() => handleMenuAction('open')}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+              className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
             >
-              📂 打开所在目录
+              <OpenFolderIcon />
+              打开所在目录
             </button>
             <button
               onClick={() => handleMenuAction('addToPlaylist')}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+              className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
             >
-              📋 添加到播放列表
+              <PlaylistIcon />
+              添加到播放列表
             </button>
             <button
               onClick={() => handleMenuAction('tags')}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+              className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
             >
-              🏷️ 编辑标签
+              <TagIcon />
+              编辑标签
             </button>
             {onRemoveFromPlaylist && (
               <button
                 onClick={() => handleMenuAction('remove')}
-                className="w-full text-left px-4 py-2 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
               >
-                📤 移出播放列表
+                <RemoveIcon />
+                移出播放列表
               </button>
             )}
             <div className="border-t border-[#3D3D3D] my-1"></div>
             <button
               onClick={() => handleMenuAction('delete')}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+              className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
             >
-              🗑️ 删除
+              <DeleteIcon />
+              删除
             </button>
           </div>
         )}
@@ -400,42 +445,47 @@ export const MediaGrid: React.FC<MediaGridProps> = ({
       {contextMenu.visible && contextMenu.media && (
         <div
           ref={menuRef}
-          className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[180px]"
+          className="fixed bg-[#252525]/95 backdrop-blur-md border border-[#4A4A4A] rounded-lg shadow-2xl py-1 z-50 min-w-[188px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
           <button
             onClick={() => handleMenuAction('open')}
-            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+            className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
           >
-            📂 打开所在目录
+            <OpenFolderIcon />
+            打开所在目录
           </button>
           <button
             onClick={() => handleMenuAction('addToPlaylist')}
-            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+            className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
           >
-            📋 添加到播放列表
+            <PlaylistIcon />
+            添加到播放列表
           </button>
           <button
             onClick={() => handleMenuAction('tags')}
-            className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+            className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
           >
-            🏷️ 编辑标签
+            <TagIcon />
+            编辑标签
           </button>
           {onRemoveFromPlaylist && (
             <button
               onClick={() => handleMenuAction('remove')}
-              className="w-full text-left px-4 py-2 text-sm text-yellow-400 hover:text-yellow-300 hover:bg-yellow-500/10 transition-colors flex items-center gap-2"
+              className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
             >
-              📤 移出播放列表
+              <RemoveIcon />
+              移出播放列表
             </button>
           )}
           <div className="border-t border-[#3D3D3D] my-1"></div>
           <button
             onClick={() => handleMenuAction('delete')}
-            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+            className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
           >
-            🗑️ 删除
+            <DeleteIcon />
+            删除
           </button>
         </div>
       )}

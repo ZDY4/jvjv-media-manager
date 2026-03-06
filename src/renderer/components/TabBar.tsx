@@ -339,7 +339,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                 appearance="subtle"
                 size="small"
                 onClick={handleDeleteClick}
-                className={mergeClasses(styles.contextItem, styles.contextDanger)}
+                className={styles.contextItem}
               >
                 删除
               </Button>
@@ -489,9 +489,6 @@ const useStyles = makeStyles({
   contextItem: {
     justifyContent: 'flex-start',
     color: tokens.colorNeutralForeground2,
-  },
-  contextDanger: {
-    color: tokens.colorPaletteRedForeground2,
   },
 });
 
