@@ -331,8 +331,8 @@ export const Sidebar: React.FC = () => {
         }`}
         style={{ width: sidebarWidth }}
       >
-        {/* 固定按钮 */}
-        <div className="absolute right-2 top-2 z-10">
+        {/* 顶部操作区 */}
+        <div className={styles.sidebarActions}>
           <Button
             appearance="subtle"
             size="small"
@@ -520,6 +520,14 @@ const useStyles = makeStyles({
   searchContainer: {
     padding: tokens.spacingHorizontalM,
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+  },
+  sidebarActions: {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    paddingTop: tokens.spacingVerticalXS,
+    paddingRight: tokens.spacingHorizontalXS,
+    paddingBottom: tokens.spacingVerticalXXS,
   },
   toolbar: {
     padding: tokens.spacingHorizontalM,
