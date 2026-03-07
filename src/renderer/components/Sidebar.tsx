@@ -331,8 +331,8 @@ export const Sidebar: React.FC = () => {
         }`}
         style={{ width: sidebarWidth }}
       >
-        {/* 顶部操作区 */}
-        <div className={styles.sidebarActions}>
+        {/* 固定按钮 */}
+        <div className="absolute right-2 top-2 z-10">
           <Button
             appearance="subtle"
             size="small"
@@ -367,7 +367,6 @@ export const Sidebar: React.FC = () => {
           playlists={playlists}
           activeTabId={activeTabId}
           onTabChange={setActiveTabId}
-          onCreatePlaylist={createPlaylist}
           onRenamePlaylist={renamePlaylist}
           onDeletePlaylist={deletePlaylist}
           onReorderPlaylists={handleReorderPlaylists}
@@ -520,14 +519,6 @@ const useStyles = makeStyles({
   searchContainer: {
     padding: tokens.spacingHorizontalM,
     borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
-  },
-  sidebarActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    paddingTop: tokens.spacingVerticalXS,
-    paddingRight: tokens.spacingHorizontalXS,
-    paddingBottom: tokens.spacingVerticalXXS,
   },
   toolbar: {
     padding: tokens.spacingHorizontalM,

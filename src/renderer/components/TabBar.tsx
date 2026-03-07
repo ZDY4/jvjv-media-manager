@@ -22,8 +22,6 @@ interface TabBarProps {
   activeTabId: string;
   // Tab切换回调
   onTabChange: (tabId: string) => void;
-  // 创建播放列表回调
-  onCreatePlaylist: (name: string) => void;
   // 重命名播放列表回调
   onRenamePlaylist: (id: string, name: string) => void;
   // 删除播放列表回调
@@ -48,7 +46,6 @@ export const TabBar: React.FC<TabBarProps> = ({
   playlists,
   activeTabId,
   onTabChange,
-  onCreatePlaylist,
   onRenamePlaylist,
   onDeletePlaylist,
   onReorderPlaylists,
@@ -69,10 +66,6 @@ export const TabBar: React.FC<TabBarProps> = ({
     y: 0,
     playlistId: null,
   });
-
-  // 新建播放列表弹窗状态
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   // 重命名弹窗状态
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -160,15 +153,6 @@ export const TabBar: React.FC<TabBarProps> = ({
       }
     }
     closeContextMenu();
-  };
-
-  // 处理新建播放列表
-  const handleCreatePlaylist = () => {
-    if (newPlaylistName.trim()) {
-      onCreatePlaylist(newPlaylistName.trim());
-    }
-    setShowCreateDialog(false);
-    setNewPlaylistName('');
   };
 
   // 拖动开始
@@ -303,18 +287,6 @@ export const TabBar: React.FC<TabBarProps> = ({
           ))}
         </div>
 
-        {/* 新建播放列表按钮 */}
-        <Button
-          appearance="subtle"
-          size="small"
-          onClick={() => setShowCreateDialog(true)}
-          className={styles.createButton}
-          title="新建播放列表"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </Button>
       </div>
 
       {/* Tab右键菜单 */}
@@ -361,36 +333,6 @@ export const TabBar: React.FC<TabBarProps> = ({
           )}
         </div>
       )}
-
-      {/* 新建播放列表弹窗 */}
-      <Dialog open={showCreateDialog} onOpenChange={(_, data) => setShowCreateDialog(data.open)}>
-        <DialogSurface>
-          <DialogBody>
-            <DialogTitle>新建播放列表</DialogTitle>
-            <DialogContent>
-              <Field label="播放列表名称">
-                <Input
-                  value={newPlaylistName}
-                  onChange={(_, data) => setNewPlaylistName(data.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') handleCreatePlaylist();
-                    if (e.key === 'Escape') setShowCreateDialog(false);
-                  }}
-                  placeholder="输入播放列表名称"
-                />
-              </Field>
-            </DialogContent>
-            <DialogActions>
-              <Button appearance="secondary" onClick={() => setShowCreateDialog(false)}>
-                取消
-              </Button>
-              <Button appearance="primary" onClick={handleCreatePlaylist} disabled={!newPlaylistName.trim()}>
-                创建
-              </Button>
-            </DialogActions>
-          </DialogBody>
-        </DialogSurface>
-      </Dialog>
 
       {/* 重命名弹窗 */}
       <Dialog open={showRenameDialog} onOpenChange={(_, data) => setShowRenameDialog(data.open)}>
@@ -469,10 +411,6 @@ const useStyles = makeStyles({
   refreshButton: {
     minWidth: 'unset',
     marginLeft: tokens.spacingHorizontalXXS,
-  },
-  createButton: {
-    marginRight: tokens.spacingHorizontalXS,
-    minWidth: '36px',
   },
   contextMenu: {
     position: 'fixed',
