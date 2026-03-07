@@ -8,6 +8,40 @@ import { useMediaActions } from '../hooks/useMediaActions';
 
 type PlayerAreaProps = object;
 
+const OpenFolderIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.7}
+      d="M3 7.5a1.5 1.5 0 011.5-1.5h4l1.6 1.6a1.5 1.5 0 001.06.44H19.5A1.5 1.5 0 0121 9.54V18a2 2 0 01-2 2H5a2 2 0 01-2-2V7.5z"
+    />
+  </svg>
+);
+
+const TagIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={1.7}
+      d="M20 12l-8 8-9-9V4h7l10 8zM7.5 7.5h.01"
+    />
+  </svg>
+);
+
+const TrimIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M6 5l12 14M6 19L18 5M4 9h4M16 15h4" />
+  </svg>
+);
+
+const DeleteIcon: React.FC = () => (
+  <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.7} d="M4 7h16m-3 0v12a2 2 0 01-2 2H9a2 2 0 01-2-2V7m3-3h4m-5 8l1 6m4-6l-1 6" />
+  </svg>
+);
+
 export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, ref) => {
   const {
     sidebarPinned,
@@ -182,7 +216,7 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
           {/* Context Menu */}
           {contextMenu.visible && selectedMedia && (
             <div
-              className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[160px]"
+              className="fixed bg-[#252525]/95 backdrop-blur-md border border-[#4A4A4A] rounded-lg shadow-2xl py-1 z-50 min-w-[188px]"
               style={{ left: contextMenu.x, top: contextMenu.y }}
               onClick={e => e.stopPropagation()}
             >
@@ -191,18 +225,20 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
                   handleOpenMediaFolder(selectedMedia);
                   closeContextMenu();
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
               >
-                📂 打开所在目录
+                <OpenFolderIcon />
+                打开所在目录
               </button>
               <button
                 onClick={() => {
                   onEditTags();
                   closeContextMenu();
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
               >
-                🏷️ 编辑标签
+                <TagIcon />
+                编辑标签
               </button>
               {selectedMedia.type === 'video' && (
                 <button
@@ -210,9 +246,10 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
                     setShowTrimmer(true);
                     closeContextMenu();
                   }}
-                  className="w-full text-left px-4 py-2 text-sm text-green-400 hover:text-green-300 hover:bg-green-500/10 transition-colors flex items-center gap-2"
+                  className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
                 >
-                  ✂️ 剪辑视频
+                  <TrimIcon />
+                  剪辑视频
                 </button>
               )}
               <div className="border-t border-[#3D3D3D] my-1"></div>
@@ -221,9 +258,10 @@ export const PlayerArea = forwardRef<VideoPlayerRef, PlayerAreaProps>((_props, r
                   handleDeleteMedia([selectedMedia.id]);
                   closeContextMenu();
                 }}
-                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                className="w-full text-left px-3.5 py-2 text-sm text-gray-200 hover:text-white hover:bg-white/5 transition-colors flex items-center gap-2"
               >
-                🗑️ 删除
+                <DeleteIcon />
+                删除
               </button>
             </div>
           )}

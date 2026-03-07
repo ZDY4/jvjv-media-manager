@@ -34,6 +34,9 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   getDataDir: () => import_electron.ipcRenderer.invoke("get-data-dir"),
   setDataDir: (dirPath) => import_electron.ipcRenderer.invoke("set-data-dir", dirPath),
   selectDataDir: () => import_electron.ipcRenderer.invoke("select-data-dir"),
+  // 密码管理
+  getLockPassword: () => import_electron.ipcRenderer.invoke("get-lock-password"),
+  setLockPassword: (password) => import_electron.ipcRenderer.invoke("set-lock-password", password),
   // 菜单事件监听
   onMenuAddFiles: (callback) => {
     import_electron.ipcRenderer.removeAllListeners("menu-add-files");
@@ -66,7 +69,15 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
       import_electron.ipcRenderer.removeAllListeners("scan-progress");
     };
   },
-  // 播放列表窗口管理
+  // 扫描增量批次
+  onScanBatch: (callback) => {
+    import_electron.ipcRenderer.removeAllListeners("scan-batch");
+    import_electron.ipcRenderer.on("scan-batch", (_, data) => callback(data));
+    return () => {
+      import_electron.ipcRenderer.removeAllListeners("scan-batch");
+    };
+  },
+  // 媒体库窗口管理
   createPlaylistWindow: () => import_electron.ipcRenderer.invoke("create-playlist-window"),
   closePlaylistWindow: () => import_electron.ipcRenderer.invoke("close-playlist-window"),
   onPlaylistWindowClosed: (callback) => {
@@ -84,7 +95,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
       import_electron.ipcRenderer.removeAllListeners("playlist-action");
     };
   },
-  // 播放列表窗口专用 API
+  // 媒体库窗口专用 API
   onPlaylistDataSync: (callback) => {
     import_electron.ipcRenderer.removeAllListeners("sync-playlist-data");
     import_electron.ipcRenderer.on("sync-playlist-data", (_, data) => callback(data));
@@ -99,9 +110,20 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   minimizeWindow: () => import_electron.ipcRenderer.send("minimize-window"),
   maximizeWindow: () => import_electron.ipcRenderer.send("maximize-window"),
   closeWindow: () => import_electron.ipcRenderer.send("close-window"),
-  // 播放列表窗口控制
+  // 媒体库窗口控制
   minimizePlaylistWindow: () => import_electron.ipcRenderer.send("minimize-playlist-window"),
   maximizePlaylistWindow: () => import_electron.ipcRenderer.send("maximize-playlist-window"),
-  closePlaylistWindowDirect: () => import_electron.ipcRenderer.send("close-playlist-window-direct")
+  closePlaylistWindowDirect: () => import_electron.ipcRenderer.send("close-playlist-window-direct"),
+  // 播放列表管理
+  getAllPlaylists: () => import_electron.ipcRenderer.invoke("get-all-playlists"),
+  getPlaylist: (id) => import_electron.ipcRenderer.invoke("get-playlist", id),
+  getPlaylistMedia: (playlistId) => import_electron.ipcRenderer.invoke("get-playlist-media", playlistId),
+  createPlaylist: (name) => import_electron.ipcRenderer.invoke("create-playlist", name),
+  renamePlaylist: (id, name) => import_electron.ipcRenderer.invoke("rename-playlist", id, name),
+  deletePlaylist: (id) => import_electron.ipcRenderer.invoke("delete-playlist", id),
+  updatePlaylistOrder: (orders) => import_electron.ipcRenderer.invoke("update-playlist-order", orders),
+  addMediaToPlaylist: (playlistId, mediaIds) => import_electron.ipcRenderer.invoke("add-media-to-playlist", playlistId, mediaIds),
+  removeMediaFromPlaylist: (playlistId, mediaIds) => import_electron.ipcRenderer.invoke("remove-media-from-playlist", playlistId, mediaIds),
+  updatePlaylistMediaOrder: (playlistId, mediaIds) => import_electron.ipcRenderer.invoke("update-playlist-media-order", playlistId, mediaIds)
 });
 console.log("[Preload] Electron API \u521D\u59CB\u5316\u5B8C\u6210");

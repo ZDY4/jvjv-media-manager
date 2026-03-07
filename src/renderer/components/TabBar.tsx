@@ -1,4 +1,18 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
+import {
+  Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Field,
+  Input,
+  makeStyles,
+  mergeClasses,
+  tokens,
+} from '@fluentui/react-components';
 import type { Playlist } from '../../shared/types';
 
 interface TabBarProps {
@@ -8,8 +22,6 @@ interface TabBarProps {
   activeTabId: string;
   // Tab切换回调
   onTabChange: (tabId: string) => void;
-  // 创建播放列表回调
-  onCreatePlaylist: (name: string) => void;
   // 重命名播放列表回调
   onRenamePlaylist: (id: string, name: string) => void;
   // 删除播放列表回调
@@ -34,13 +46,13 @@ export const TabBar: React.FC<TabBarProps> = ({
   playlists,
   activeTabId,
   onTabChange,
-  onCreatePlaylist,
   onRenamePlaylist,
   onDeletePlaylist,
   onReorderPlaylists,
   onRefreshLibrary,
   hasWatchedFolders = false,
 }) => {
+  const styles = useStyles();
   // Tab容器引用
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -54,10 +66,6 @@ export const TabBar: React.FC<TabBarProps> = ({
     y: 0,
     playlistId: null,
   });
-
-  // 新建播放列表弹窗状态
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [newPlaylistName, setNewPlaylistName] = useState('');
 
   // 重命名弹窗状态
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -147,15 +155,6 @@ export const TabBar: React.FC<TabBarProps> = ({
     closeContextMenu();
   };
 
-  // 处理新建播放列表
-  const handleCreatePlaylist = () => {
-    if (newPlaylistName.trim()) {
-      onCreatePlaylist(newPlaylistName.trim());
-    }
-    setShowCreateDialog(false);
-    setNewPlaylistName('');
-  };
-
   // 拖动开始
   const handleDragStart = (e: React.DragEvent, tabId: string) => {
     // 媒体库Tab不允许拖动
@@ -221,21 +220,20 @@ export const TabBar: React.FC<TabBarProps> = ({
   return (
     <>
       {/* Tab栏 */}
-      <div className="flex items-center border-b border-[#3D3D3D] bg-[#252525]">
+      <div className={styles.tabRoot}>
         {/* Tab容器 */}
         <div
           ref={tabsContainerRef}
-          className="flex-1 flex overflow-x-auto scrollbar-hide"
+          className={styles.tabScroller}
           onWheel={handleWheel}
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           {/* 媒体库固定Tab */}
           <div
-            className={`flex-shrink-0 px-4 py-2 cursor-pointer select-none transition-colors flex items-center gap-2 ${
-              activeTabId === 'media-library'
-                ? 'bg-[#2D2D2D] text-[#e0e0e0] border-t-2 border-t-[#005FB8]'
-                : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-            }`}
+            className={mergeClasses(
+              styles.tabItem,
+              activeTabId === 'media-library' ? styles.tabItemActive : styles.tabItemIdle
+            )}
             onClick={() => onTabChange('media-library')}
             onContextMenu={e => handleTabContextMenu(e, null)}
           >
@@ -243,12 +241,14 @@ export const TabBar: React.FC<TabBarProps> = ({
 
             {/* 刷新按钮 - 仅在媒体库Tab激活且有监控文件夹时显示 */}
             {activeTabId === 'media-library' && hasWatchedFolders && onRefreshLibrary && (
-              <button
+              <Button
+                appearance="subtle"
+                size="small"
                 onClick={e => {
                   e.stopPropagation();
                   onRefreshLibrary();
                 }}
-                className="ml-1 p-1 text-gray-400 hover:text-white transition-colors rounded hover:bg-white/10"
+                className={styles.refreshButton}
                 title="刷新媒体库"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -259,7 +259,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                   />
                 </svg>
-              </button>
+              </Button>
             )}
           </div>
 
@@ -273,13 +273,12 @@ export const TabBar: React.FC<TabBarProps> = ({
               onDragLeave={handleDragLeave}
               onDrop={e => handleDrop(e, playlist.id)}
               onDragEnd={handleDragEnd}
-              className={`flex-shrink-0 px-4 py-2 cursor-pointer select-none transition-colors flex items-center gap-2 group ${
-                activeTabId === playlist.id
-                  ? 'bg-[#2D2D2D] text-[#e0e0e0] border-t-2 border-t-[#005FB8]'
-                  : 'text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5'
-              } ${dragOverTabId === playlist.id ? 'bg-[#005FB8]/20' : ''} ${
+              className={mergeClasses(
+                styles.tabItem,
+                activeTabId === playlist.id ? styles.tabItemActive : styles.tabItemIdle,
+                dragOverTabId === playlist.id ? styles.tabDragOver : '',
                 isDragging && draggedTabId === playlist.id ? 'opacity-50' : ''
-              }`}
+              )}
               onClick={() => onTabChange(playlist.id)}
               onContextMenu={e => handleTabContextMenu(e, playlist.id)}
             >
@@ -288,128 +287,150 @@ export const TabBar: React.FC<TabBarProps> = ({
           ))}
         </div>
 
-        {/* 新建播放列表按钮 */}
-        <button
-          onClick={() => setShowCreateDialog(true)}
-          className="flex-shrink-0 px-3 py-2 text-gray-400 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors"
-          title="新建播放列表"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
       </div>
 
       {/* Tab右键菜单 */}
       {contextMenu.visible && (
         <div
-          className="fixed bg-[#2D2D2D] border border-[#3D3D3D] rounded-lg shadow-xl py-1 z-50 min-w-[140px]"
+          className={styles.contextMenu}
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
           {contextMenu.playlistId ? (
             // 播放列表菜单
             <>
-              <button
+              <Button
+                appearance="subtle"
+                size="small"
                 onClick={handleRenameClick}
-                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+                className={styles.contextItem}
               >
-                ✏️ 重命名
-              </button>
-              <button
+                重命名
+              </Button>
+              <Button
+                appearance="subtle"
+                size="small"
                 onClick={handleDeleteClick}
-                className="w-full text-left px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors flex items-center gap-2"
+                className={styles.contextItem}
               >
-                🗑️ 删除
-              </button>
+                删除
+              </Button>
             </>
           ) : (
             // 媒体库菜单
-            <button
+            <Button
+              appearance="subtle"
+              size="small"
               onClick={() => {
                 closeContextMenu();
                 // 这里可以通过事件通知添加文件/文件夹
                 window.dispatchEvent(new CustomEvent('media-library-add-files'));
               }}
-              className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-[#e0e0e0] hover:bg-[#e0e0e0]/5 transition-colors flex items-center gap-2"
+              className={styles.contextItem}
             >
-              📁 添加文件/文件夹
-            </button>
+              添加文件/文件夹
+            </Button>
           )}
         </div>
       )}
 
-      {/* 新建播放列表弹窗 */}
-      {showCreateDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#2D2D2D] rounded-lg p-6 w-80 border border-[#3D3D3D]">
-            <h3 className="text-[#e0e0e0] font-semibold mb-4">新建播放列表</h3>
-            <input
-              type="text"
-              value={newPlaylistName}
-              onChange={e => setNewPlaylistName(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleCreatePlaylist();
-                if (e.key === 'Escape') setShowCreateDialog(false);
-              }}
-              placeholder="输入播放列表名称"
-              className="w-full px-3 py-2 bg-[#1a1a1a] border border-[#3D3D3D] rounded text-[#e0e0e0] placeholder-gray-500 focus:outline-none focus:border-[#005FB8]"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => setShowCreateDialog(false)}
-                className="px-4 py-2 text-gray-400 hover:text-[#e0e0e0] transition-colors"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleCreatePlaylist}
-                disabled={!newPlaylistName.trim()}
-                className="px-4 py-2 bg-[#005FB8] text-white rounded hover:bg-[#004a91] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                创建
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* 重命名弹窗 */}
-      {showRenameDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#2D2D2D] rounded-lg p-6 w-80 border border-[#3D3D3D]">
-            <h3 className="text-[#e0e0e0] font-semibold mb-4">重命名播放列表</h3>
-            <input
-              type="text"
-              value={renameValue}
-              onChange={e => setRenameValue(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter') handleConfirmRename();
-                if (e.key === 'Escape') setShowRenameDialog(false);
-              }}
-              placeholder="输入新名称"
-              className="w-full px-3 py-2 bg-[#1a1a1a] border border-[#3D3D3D] rounded text-[#e0e0e0] placeholder-gray-500 focus:outline-none focus:border-[#005FB8]"
-              autoFocus
-            />
-            <div className="flex justify-end gap-2 mt-4">
-              <button
-                onClick={() => setShowRenameDialog(false)}
-                className="px-4 py-2 text-gray-400 hover:text-[#e0e0e0] transition-colors"
-              >
+      <Dialog open={showRenameDialog} onOpenChange={(_, data) => setShowRenameDialog(data.open)}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>重命名播放列表</DialogTitle>
+            <DialogContent>
+              <Field label="新名称">
+                <Input
+                  value={renameValue}
+                  onChange={(_, data) => setRenameValue(data.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleConfirmRename();
+                    if (e.key === 'Escape') setShowRenameDialog(false);
+                  }}
+                  placeholder="输入新名称"
+                />
+              </Field>
+            </DialogContent>
+            <DialogActions>
+              <Button appearance="secondary" onClick={() => setShowRenameDialog(false)}>
                 取消
-              </button>
-              <button
-                onClick={handleConfirmRename}
-                disabled={!renameValue.trim()}
-                className="px-4 py-2 bg-[#005FB8] text-white rounded hover:bg-[#004a91] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              </Button>
+              <Button appearance="primary" onClick={handleConfirmRename} disabled={!renameValue.trim()}>
                 确认
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
     </>
   );
 };
+
+const useStyles = makeStyles({
+  tabRoot: {
+    display: 'flex',
+    alignItems: 'center',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke2}`,
+    backgroundColor: colorMix(tokens.colorNeutralBackground3, 0.72),
+    backdropFilter: 'blur(10px)',
+  },
+  tabScroller: {
+    flex: 1,
+    display: 'flex',
+    overflowX: 'auto',
+  },
+  tabItem: {
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    columnGap: tokens.spacingHorizontalXXS,
+    padding: `${tokens.spacingVerticalSNudge} ${tokens.spacingHorizontalM}`,
+    cursor: 'pointer',
+    userSelect: 'none',
+    transitionDuration: '140ms',
+    transitionProperty: 'background-color,color,border-color',
+    borderTop: `2px solid transparent`,
+    color: tokens.colorNeutralForeground3,
+    fontSize: tokens.fontSizeBase300,
+  },
+  tabItemActive: {
+    color: tokens.colorNeutralForeground1,
+    backgroundColor: colorMix(tokens.colorNeutralBackground2, 0.82),
+    borderTopColor: tokens.colorBrandStroke1,
+  },
+  tabItemIdle: {
+    ':hover': {
+      color: tokens.colorNeutralForeground2,
+      backgroundColor: colorMix(tokens.colorNeutralBackground2, 0.42),
+    },
+  },
+  tabDragOver: {
+    backgroundColor: colorMix(tokens.colorBrandBackground2, 0.35),
+  },
+  refreshButton: {
+    minWidth: 'unset',
+    marginLeft: tokens.spacingHorizontalXXS,
+  },
+  contextMenu: {
+    position: 'fixed',
+    minWidth: '156px',
+    display: 'flex',
+    flexDirection: 'column',
+    padding: tokens.spacingVerticalXXS,
+    backgroundColor: colorMix(tokens.colorNeutralBackground2, 0.94),
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: tokens.borderRadiusMedium,
+    boxShadow: tokens.shadow16,
+    zIndex: 50,
+  },
+  contextItem: {
+    justifyContent: 'flex-start',
+    color: tokens.colorNeutralForeground2,
+  },
+});
+
+function colorMix(color: string, alpha: number): string {
+  const percent = Math.max(0, Math.min(1, alpha)) * 100;
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+}
