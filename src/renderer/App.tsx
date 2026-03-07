@@ -37,7 +37,7 @@ function App() {
       }
     };
     loadPassword();
-  }, []);
+  }, [setLockPassword]);
 
   // Stores
   const {
