@@ -1,5 +1,6 @@
 import { BrowserWindow } from 'electron';
 import path from 'path';
+import fs from 'fs';
 
 let playlistWindow: BrowserWindow | null = null;
 
@@ -33,7 +34,13 @@ export async function createPlaylistWindow(): Promise<BrowserWindow> {
   if (isDev) {
     await playlistWindow.loadURL('http://localhost:5173/playlist.html');
   } else {
-    await playlistWindow.loadFile(path.join(__dirname, '../../renderer/playlist.html'));
+    const rendererCandidates = [
+      path.resolve(__dirname, '../renderer/playlist.html'),
+      path.resolve(__dirname, '../../renderer/playlist.html'),
+      path.resolve(process.resourcesPath, 'app.asar', 'dist', 'renderer', 'playlist.html'),
+    ];
+    const rendererPath = rendererCandidates.find(candidate => fs.existsSync(candidate));
+    await playlistWindow.loadFile(rendererPath || rendererCandidates[0]);
   }
 
   playlistWindow.show();

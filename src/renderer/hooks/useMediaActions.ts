@@ -135,6 +135,71 @@ export const useMediaActions = () => {
     }
   }, [loadMedia, watchedFolders, setWatchedFolders, setScanProgress]);
 
+  const handleAddPaths = useCallback(
+    async (
+      paths: string[],
+      options?: {
+        silentSuccessToast?: boolean;
+      }
+    ): Promise<MediaFile[]> => {
+      if (!window.electronAPI) {
+        window.showToast?.({ message: '错误: Electron API 未初始化，请重启应用', type: 'error' });
+        return [];
+      }
+
+      const dedupedPaths = Array.from(new Set(paths.map(p => p.trim()).filter(Boolean)));
+      if (dedupedPaths.length === 0) {
+        window.showToast?.({ message: '未检测到可导入的文件或文件夹', type: 'info' });
+        return [];
+      }
+
+      setScanProgress({ message: '正在处理拖拽内容...', percent: 0 });
+      try {
+        const newMedia = await window.electronAPI.addMediaPaths(dedupedPaths);
+        setScanProgress(null);
+
+        if (newMedia && newMedia.length > 0) {
+          // 从新增媒体中提取文件夹并加入监控（静默去重，不弹重复提示）
+          const addedFolderPaths = new Set<string>();
+          for (const media of newMedia) {
+            const folderPath = media.path.substring(
+              0,
+              media.path.lastIndexOf('/') !== -1
+                ? media.path.lastIndexOf('/')
+                : media.path.lastIndexOf('\\')
+            );
+            if (folderPath) {
+              addedFolderPaths.add(folderPath);
+            }
+          }
+
+          let updatedFolders = [...watchedFolders];
+          for (const folderPath of addedFolderPaths) {
+            const check = canAddWatchedFolder(folderPath, updatedFolders);
+            if (!check.canAdd) continue;
+            updatedFolders = addWatchedFolder(folderPath, updatedFolders);
+          }
+
+          setWatchedFolders(updatedFolders);
+          if (!options?.silentSuccessToast) {
+            window.showToast?.({ message: `已添加 ${newMedia.length} 个文件`, type: 'success' });
+          }
+          loadMedia();
+          return newMedia;
+        } else {
+          window.showToast?.({ message: '未找到可导入的媒体文件', type: 'info' });
+          return [];
+        }
+      } catch (error) {
+        setScanProgress(null);
+        console.error('拖拽导入失败:', error);
+        window.showToast?.({ message: '拖拽导入失败: ' + (error as Error).message, type: 'error' });
+        return [];
+      }
+    },
+    [loadMedia, watchedFolders, setWatchedFolders, setScanProgress]
+  );
+
   const handleRefreshFolders = useCallback(async () => {
     if (!window.electronAPI || watchedFolders.length === 0) {
       window.showToast?.({ message: '没有监控的文件夹', type: 'info' });
@@ -325,6 +390,7 @@ export const useMediaActions = () => {
     loadMedia,
     handleAddFiles,
     handleAddFolder,
+    handleAddPaths,
     handleRefreshFolders,
     handleDeleteMedia,
     handleClearPlaylist,

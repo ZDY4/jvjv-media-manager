@@ -29,6 +29,54 @@ export interface Tag {
   createdAt: number;
 }
 
+export interface TrimSegment {
+  start: number;
+  end: number;
+}
+
+export type AutoUpdateStatusType =
+  | 'idle'
+  | 'disabled'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'download-progress'
+  | 'downloaded'
+  | 'error';
+
+export interface AutoUpdateStatus {
+  status: AutoUpdateStatusType;
+  message: string;
+  percent?: number;
+  version?: string;
+}
+
+export interface PortableModeStatus {
+  enabled: boolean;
+  dataDir: string;
+  writable: boolean;
+  reason?: string;
+}
+
+export type CacheClearScope = 'cache_only' | 'cache_and_library' | 'all_data';
+
+export interface CacheStatus {
+  dataDir: string;
+  writable: boolean;
+  sizeBytes: number;
+  reason?: string;
+}
+
+export interface CacheClearResult {
+  success: boolean;
+  scope: CacheClearScope;
+  dataDir: string;
+  durationMs: number;
+  freedBytes: number;
+  deletedEntries: number;
+  message: string;
+}
+
 // 播放列表
 export interface Playlist {
   id: string;
@@ -45,6 +93,7 @@ export interface PlaylistWithMedia extends Playlist {
 export interface ElectronAPI {
   addMediaFiles: () => Promise<MediaFile[] | null>;
   addMediaFolder: () => Promise<MediaFile[] | null>;
+  addMediaPaths: (paths: string[]) => Promise<MediaFile[] | null>;
   scanMediaFolder: () => Promise<MediaFile[] | null>; // 向后兼容
   getAllMedia: () => Promise<MediaFile[]>;
   searchMediaByTags: (tags: string[]) => Promise<MediaFile[]>;
@@ -56,19 +105,31 @@ export interface ElectronAPI {
     mode: 'keep' | 'remove';
     input: string;
     output: string;
-    start: number;
-    end: number;
+    segments: TrimSegment[];
   }) => Promise<{ success: boolean; output?: string; error?: string }>;
   selectOutputDir: () => Promise<string>;
-  onTrimProgress: (callback: (data: { percent: number; mode: string }) => void) => void;
+  onTrimProgress: (callback: (data: { percent: number; mode: 'keep' | 'remove' }) => void) => void;
   onTrimComplete: (
     callback: (data: { success: boolean; output?: string; error?: string }) => void
   ) => void;
+
+  // 应用更新
+  getAppVersion: () => Promise<string>;
+  getAutoUpdateStatus: () => Promise<AutoUpdateStatus>;
+  checkForUpdates: () => Promise<{ success: boolean; message: string }>;
+  quitAndInstallUpdate: () => Promise<{ success: boolean; message: string }>;
+  onAutoUpdateStatus: (callback: (data: AutoUpdateStatus) => void) => () => void;
 
   // 数据目录管理
   getDataDir: () => Promise<string>;
   setDataDir: (dirPath: string) => Promise<boolean>;
   selectDataDir: () => Promise<string | null>;
+  getPortableModeStatus: () => Promise<PortableModeStatus>;
+  setPortableMode: (
+    enabled: boolean
+  ) => Promise<{ success: boolean; message: string; dataDir: string }>;
+  getCacheStatus: () => Promise<CacheStatus>;
+  clearCache: (scope: CacheClearScope) => Promise<CacheClearResult>;
 
   // 密码管理
   getLockPassword: () => Promise<string>;

@@ -170,6 +170,16 @@ class DatabaseManager {
     })();
   }
 
+  // 重置媒体库数据（包含播放列表）
+  resetLibrary(): void {
+    this.db.transaction(() => {
+      this.db.prepare('DELETE FROM playlist_media').run();
+      this.db.prepare('DELETE FROM playlists').run();
+      this.db.prepare('DELETE FROM tags').run();
+      this.db.prepare('DELETE FROM media').run();
+    })();
+  }
+
   addTag(mediaId: string, tag: string): void {
     const stmt = this.db.prepare(`
       INSERT OR IGNORE INTO tags (mediaId, name, createdAt)
@@ -260,6 +270,22 @@ class DatabaseManager {
     if (this.db) {
       this.db.close();
     }
+  }
+
+  // 重建数据库文件（用于高风险清理）
+  rebuildDatabase(): void {
+    this.close();
+
+    for (const suffix of ['', '-wal', '-shm']) {
+      const target = `${this.dbPath}${suffix}`;
+      if (fs.existsSync(target)) {
+        fs.unlinkSync(target);
+      }
+    }
+
+    fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
+    this.db = new Database(this.dbPath);
+    this.initializeDatabase();
   }
 
   // ========== 播放列表相关方法 ==========

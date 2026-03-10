@@ -1,7 +1,7 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import { Worker } from 'worker_threads';
 import { validateTrimParams } from '../utils/validation';
-import { getWorkerPath } from '../utils/paths';
+import { getWorkerPath, getFfmpegPath, getFfprobePath } from '../utils/paths';
 
 const activeWorkers = new Map<string, Worker>();
 
@@ -14,7 +14,7 @@ export function registerVideoHandlers() {
       return { success: false, error: validation.error };
     }
 
-    const { mode, input, output, start, end } = params;
+    const { mode, input, output, segments } = params;
     const jobId = Date.now().toString();
     const sender = event.sender;
     const window = BrowserWindow.fromWebContents(sender);
@@ -64,7 +64,14 @@ export function registerVideoHandlers() {
         resolve(errorData);
       });
 
-      worker.postMessage({ mode, input, output, start, end });
+      worker.postMessage({
+        mode,
+        input,
+        output,
+        segments,
+        ffmpegPath: getFfmpegPath(),
+        ffprobePath: getFfprobePath(),
+      });
     });
   });
 

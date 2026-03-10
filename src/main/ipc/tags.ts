@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { DatabaseManager } from '../db/databaseManager';
+import type { DatabaseManager } from '../db/databaseManager';
 import { validateMediaId } from '../utils/validation';
 
 export function registerTagHandlers(dbManager: DatabaseManager) {

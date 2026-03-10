@@ -1,12 +1,48 @@
 import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
-import { DatabaseManager } from '../db/databaseManager';
+import type { DatabaseManager } from '../db/databaseManager';
 import { MediaScanner } from '../utils/MediaScanner';
 import { processFileExternal } from '../utils/fileProcessor';
 import { cleanupThumbnails } from '../thumbnail';
-import { MediaFile } from '../../shared/types';
+import type { MediaFile } from '../../shared/types';
 import { validateMediaId } from '../utils/validation';
 import fs from 'fs';
 import path from 'path';
+
+let activeScanTaskCount = 0;
+
+function beginScanTask(): void {
+  activeScanTaskCount += 1;
+}
+
+function endScanTask(): void {
+  activeScanTaskCount = Math.max(0, activeScanTaskCount - 1);
+}
+
+export function isScanInProgress(): boolean {
+  return activeScanTaskCount > 0;
+}
+
+function normalizeInputPath(rawPath: string): string {
+  if (!rawPath) return '';
+  const trimmed = rawPath.trim();
+  if (!trimmed) return '';
+
+  if (!trimmed.startsWith('file://')) {
+    return path.normalize(trimmed);
+  }
+
+  try {
+    const url = new URL(trimmed);
+    if (url.protocol !== 'file:') return '';
+    let pathname = decodeURIComponent(url.pathname);
+    if (/^\/[a-zA-Z]:\//.test(pathname)) {
+      pathname = pathname.slice(1);
+    }
+    return path.normalize(pathname);
+  } catch {
+    return '';
+  }
+}
 
 export function registerMediaHandlers(dbManager: DatabaseManager) {
   // 添加文件
@@ -60,6 +96,7 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
 
   // 添加文件夹（支持多选）
   ipcMain.handle('add-media-folder', async (event): Promise<MediaFile[] | null> => {
+    beginScanTask();
     try {
       const window = BrowserWindow.fromWebContents(event.sender);
       if (!window) return null;
@@ -141,6 +178,141 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
         percent: 0,
       });
       throw error;
+    } finally {
+      endScanTask();
+    }
+  });
+
+  // 拖拽添加文件/文件夹（支持混合）
+  ipcMain.handle('add-media-paths', async (event, paths: unknown): Promise<MediaFile[] | null> => {
+    beginScanTask();
+    try {
+      if (!Array.isArray(paths) || paths.length === 0) return null;
+
+      const normalizedPaths = Array.from(
+        new Set(
+          paths
+            .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+            .map(normalizeInputPath)
+            .filter(Boolean)
+        )
+      );
+
+      if (normalizedPaths.length === 0) return null;
+
+      const folderPaths: string[] = [];
+      const filePaths: string[] = [];
+
+      for (const targetPath of normalizedPaths) {
+        try {
+          const stats = await fs.promises.stat(targetPath);
+          if (stats.isDirectory()) {
+            folderPaths.push(targetPath);
+          } else if (stats.isFile()) {
+            filePaths.push(targetPath);
+          }
+        } catch (error) {
+          console.warn('[add-media-paths] 无法访问路径:', targetPath, error);
+        }
+      }
+
+      if (folderPaths.length === 0 && filePaths.length === 0) return null;
+
+      event.sender.send('scan-progress', {
+        status: 'scanning',
+        message: '正在处理拖拽内容...',
+        percent: 0,
+      });
+
+      const allFiles: MediaFile[] = [];
+      const processedPaths = new Set<string>();
+      const dedupeAndSaveBatch = (batch: MediaFile[], isComplete: boolean) => {
+        const newBatch = batch.filter(file => {
+          const key = file.path.toLowerCase();
+          if (processedPaths.has(key)) return false;
+          processedPaths.add(key);
+          return true;
+        });
+
+        if (newBatch.length > 0) {
+          for (const file of newBatch) {
+            dbManager.addMedia(file);
+          }
+          allFiles.push(...newBatch);
+          event.sender.send('scan-batch', {
+            files: newBatch,
+            isComplete,
+          });
+        }
+      };
+
+      // Phase 1: 直接处理单文件（如果有）
+      if (filePaths.length > 0) {
+        const fileProgressWeight = folderPaths.length > 0 ? 40 : 100;
+        let scannedFileCount = 0;
+
+        for (const filePath of filePaths) {
+          try {
+            const media = await processFileExternal(filePath);
+            if (media) {
+              dedupeAndSaveBatch([media], false);
+            }
+          } catch (error) {
+            console.error('处理拖拽文件失败:', filePath, error);
+          }
+
+          scannedFileCount++;
+          const percent = Math.round((scannedFileCount / filePaths.length) * fileProgressWeight);
+          event.sender.send('scan-progress', {
+            status: 'scanning',
+            message: `正在处理文件: ${scannedFileCount}/${filePaths.length}`,
+            percent,
+          });
+        }
+      }
+
+      // Phase 2: 扫描拖拽的文件夹（如果有）
+      if (folderPaths.length > 0) {
+        const base = filePaths.length > 0 ? 40 : 0;
+        const range = filePaths.length > 0 ? 60 : 100;
+
+        const scanner = new MediaScanner(progress => {
+          const progressPercent =
+            progress.total > 0
+              ? base + Math.round((progress.scanned / progress.total) * range)
+              : base + range;
+
+          event.sender.send('scan-progress', {
+            status: 'scanning',
+            message: `正在扫描文件夹: ${progress.scanned}/${progress.total}`,
+            percent: Math.min(progressPercent, 99),
+          });
+
+          if (progress.batch.length > 0) {
+            dedupeAndSaveBatch(progress.batch, false);
+          }
+        });
+
+        await scanner.scan(folderPaths);
+      }
+
+      event.sender.send('scan-progress', {
+        status: 'complete',
+        message: `完成，共添加 ${allFiles.length} 个文件`,
+        percent: 100,
+      });
+
+      return allFiles;
+    } catch (error) {
+      console.error('拖拽添加失败:', error);
+      event.sender.send('scan-progress', {
+        status: 'error',
+        message: '拖拽添加失败: ' + (error as Error).message,
+        percent: 0,
+      });
+      throw error;
+    } finally {
+      endScanTask();
     }
   });
 
@@ -151,6 +323,7 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
 
   // 重新扫描指定文件夹
   ipcMain.handle('rescan-folders', async (event, folderPaths: string[]): Promise<MediaFile[]> => {
+    beginScanTask();
     try {
       if (folderPaths.length === 0) return [];
 
@@ -232,6 +405,8 @@ export function registerMediaHandlers(dbManager: DatabaseManager) {
         percent: 0,
       });
       throw error;
+    } finally {
+      endScanTask();
     }
   });
 

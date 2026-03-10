@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron';
-import { DatabaseManager } from '../db/databaseManager';
+import type { DatabaseManager } from '../db/databaseManager';
 
 export function registerPlaylistHandlers(dbManager: DatabaseManager) {
   // 获取所有播放列表

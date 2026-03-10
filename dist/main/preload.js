@@ -7,6 +7,7 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
   // 媒体库
   addMediaFiles: () => import_electron.ipcRenderer.invoke("add-media-files"),
   addMediaFolder: () => import_electron.ipcRenderer.invoke("add-media-folder"),
+  addMediaPaths: (paths) => import_electron.ipcRenderer.invoke("add-media-paths", paths),
   scanMediaFolder: () => import_electron.ipcRenderer.invoke("add-media-folder"),
   // 向后兼容
   getAllMedia: () => import_electron.ipcRenderer.invoke("get-all-media"),
@@ -30,10 +31,26 @@ import_electron.contextBridge.exposeInMainWorld("electronAPI", {
     import_electron.ipcRenderer.removeAllListeners("trim-complete");
     import_electron.ipcRenderer.on("trim-complete", (_, data) => callback(data));
   },
+  // 应用更新
+  getAppVersion: () => import_electron.ipcRenderer.invoke("get-app-version"),
+  getAutoUpdateStatus: () => import_electron.ipcRenderer.invoke("get-auto-update-status"),
+  checkForUpdates: () => import_electron.ipcRenderer.invoke("check-for-updates"),
+  quitAndInstallUpdate: () => import_electron.ipcRenderer.invoke("quit-and-install-update"),
+  onAutoUpdateStatus: (callback) => {
+    import_electron.ipcRenderer.removeAllListeners("auto-update-status");
+    import_electron.ipcRenderer.on("auto-update-status", (_, data) => callback(data));
+    return () => {
+      import_electron.ipcRenderer.removeAllListeners("auto-update-status");
+    };
+  },
   // 数据目录管理
   getDataDir: () => import_electron.ipcRenderer.invoke("get-data-dir"),
   setDataDir: (dirPath) => import_electron.ipcRenderer.invoke("set-data-dir", dirPath),
   selectDataDir: () => import_electron.ipcRenderer.invoke("select-data-dir"),
+  getPortableModeStatus: () => import_electron.ipcRenderer.invoke("get-portable-mode-status"),
+  setPortableMode: (enabled) => import_electron.ipcRenderer.invoke("set-portable-mode", enabled),
+  getCacheStatus: () => import_electron.ipcRenderer.invoke("get-cache-status"),
+  clearCache: (scope) => import_electron.ipcRenderer.invoke("clear-cache", scope),
   // 密码管理
   getLockPassword: () => import_electron.ipcRenderer.invoke("get-lock-password"),
   setLockPassword: (password) => import_electron.ipcRenderer.invoke("set-lock-password", password),

@@ -34,7 +34,13 @@ export async function createMainWindow(isDev: boolean): Promise<BrowserWindow> {
   if (isDev) {
     await mainWindow.loadURL('http://localhost:5173');
   } else {
-    await mainWindow.loadFile(path.join(__dirname, '../../renderer/index.html'));
+    const rendererCandidates = [
+      path.resolve(__dirname, '../renderer/index.html'),
+      path.resolve(__dirname, '../../renderer/index.html'),
+      path.resolve(process.resourcesPath, 'app.asar', 'dist', 'renderer', 'index.html'),
+    ];
+    const rendererPath = rendererCandidates.find(candidate => fs.existsSync(candidate));
+    await mainWindow.loadFile(rendererPath || rendererCandidates[0]);
   }
 
   if (!isDev) {

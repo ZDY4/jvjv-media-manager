@@ -1,43 +1,153 @@
 import { parentPort } from 'worker_threads';
 import ffmpeg from 'fluent-ffmpeg';
-import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 
-// Set ffmpeg path
-ffmpeg.setFfmpegPath(ffmpegPath);
+interface TrimSegment {
+  start: number;
+  end: number;
+}
+
+interface KeepRange {
+  start: number;
+  end?: number;
+}
 
 interface TrimMessage {
   mode: 'keep' | 'remove';
   input: string;
   output: string;
-  start: number;
-  end: number;
+  segments: TrimSegment[];
+  ffmpegPath?: string;
+  ffprobePath?: string;
+}
+
+const roundTime = (value: number): number => Number(value.toFixed(3));
+
+function normalizeSegments(segments: TrimSegment[]): TrimSegment[] {
+  const sorted = [...segments]
+    .map(segment => ({ start: Math.max(segment.start, 0), end: Math.max(segment.end, 0) }))
+    .sort((a, b) => a.start - b.start);
+
+  const merged: TrimSegment[] = [];
+  for (const segment of sorted) {
+    if (segment.start >= segment.end) continue;
+    const last = merged[merged.length - 1];
+    if (last && segment.start <= last.end) {
+      last.end = Math.max(last.end, segment.end);
+      continue;
+    }
+    merged.push(segment);
+  }
+
+  return merged;
+}
+
+function buildKeepRanges(mode: 'keep' | 'remove', segments: TrimSegment[]): KeepRange[] {
+  const normalized = normalizeSegments(segments);
+  if (normalized.length === 0) return [];
+
+  if (mode === 'keep') {
+    return normalized.map(segment => ({
+      start: roundTime(segment.start),
+      end: roundTime(segment.end),
+    }));
+  }
+
+  const ranges: KeepRange[] = [];
+  let cursor = 0;
+  for (const segment of normalized) {
+    if (segment.start > cursor) {
+      ranges.push({ start: roundTime(cursor), end: roundTime(segment.start) });
+    }
+    cursor = segment.end;
+  }
+
+  ranges.push({ start: roundTime(cursor) });
+  return ranges.filter(range => range.end === undefined || range.end > range.start);
+}
+
+async function hasAudioStream(input: string): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(input, (error, data) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      const hasAudio = data.streams?.some(stream => stream.codec_type === 'audio') ?? false;
+      resolve(hasAudio);
+    });
+  });
+}
+
+function buildFilterGraph(ranges: KeepRange[], hasAudio: boolean): {
+  filters: string[];
+  videoMap: string;
+  audioMap?: string;
+} {
+  const filters: string[] = [];
+
+  ranges.forEach((range, index) => {
+    const endPart = typeof range.end === 'number' ? `:end=${range.end}` : '';
+    filters.push(`[0:v]trim=start=${range.start}${endPart},setpts=PTS-STARTPTS[v${index}]`);
+    if (hasAudio) {
+      filters.push(`[0:a]atrim=start=${range.start}${endPart},asetpts=PTS-STARTPTS[a${index}]`);
+    }
+  });
+
+  if (ranges.length === 1) {
+    return {
+      filters,
+      videoMap: 'v0',
+      audioMap: hasAudio ? 'a0' : undefined,
+    };
+  }
+
+  const videoInputs = ranges.map((_, index) => `[v${index}]`).join('');
+  if (hasAudio) {
+    const audioInputs = ranges.map((_, index) => `[a${index}]`).join('');
+    filters.push(`${videoInputs}${audioInputs}concat=n=${ranges.length}:v=1:a=1[vout][aout]`);
+    return {
+      filters,
+      videoMap: 'vout',
+      audioMap: 'aout',
+    };
+  }
+
+  filters.push(`${videoInputs}concat=n=${ranges.length}:v=1:a=0[vout]`);
+  return {
+    filters,
+    videoMap: 'vout',
+  };
 }
 
 parentPort?.on('message', async (message: TrimMessage) => {
-  const { mode, input, output, start, end } = message;
+  const { mode, input, output, segments, ffmpegPath, ffprobePath } = message;
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      const command = ffmpeg(input);
+    if (ffmpegPath) {
+      ffmpeg.setFfmpegPath(ffmpegPath);
+    }
+    if (ffprobePath) {
+      ffmpeg.setFfprobePath(ffprobePath);
+    }
 
-      if (mode === 'keep') {
-        // Keep mode: trim to keep only the specified segment
-        command.setStartTime(start).setDuration(end - start);
-      } else {
-        // Remove mode: cut out the specified segment (need two passes or complex filter)
-        // For simplicity, we'll do two separate segments and concatenate
-        // First segment: 0 to start
-        // Second segment: end to duration
-        // This is a simplified version - full implementation would need segment concatenation
-        command
-          .videoFilters(
-            `trim=start=0:end=${start},setpts=PTS-STARTPTS[part1];` +
-              `trim=start=${end}:end=999999,setpts=PTS-STARTPTS[part2]`
-          )
-          .output(output);
+    const ranges = buildKeepRanges(mode, segments);
+    if (ranges.length === 0) {
+      throw new Error('没有可输出的视频片段');
+    }
+
+    const hasAudio = await hasAudioStream(input);
+    const filterGraph = buildFilterGraph(ranges, hasAudio);
+
+    await new Promise<void>((resolve, reject) => {
+      const outputOptions = [`-map [${filterGraph.videoMap}]`, '-movflags +faststart'];
+      if (filterGraph.audioMap) {
+        outputOptions.push(`-map [${filterGraph.audioMap}]`);
       }
 
-      command
+      ffmpeg(input)
+        .complexFilter(filterGraph.filters)
+        .outputOptions(outputOptions)
+        .output(output)
         .on('start', (cmd: string) => {
           parentPort?.postMessage({ type: 'start', command: cmd });
         })
@@ -64,7 +174,6 @@ parentPort?.on('message', async (message: TrimMessage) => {
           });
           reject(err);
         })
-        .output(output)
         .run();
     });
   } catch (error) {

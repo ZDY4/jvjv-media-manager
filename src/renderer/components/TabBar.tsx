@@ -32,6 +32,8 @@ interface TabBarProps {
   onRefreshLibrary?: () => void;
   // 是否有监控的文件夹
   hasWatchedFolders?: boolean;
+  // 拖拽文件到播放列表 Tab
+  onDropMediaToPlaylistTab?: (playlistId: string, paths: string[]) => void | Promise<void>;
 }
 
 // Tab右键菜单状态
@@ -51,6 +53,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   onReorderPlaylists,
   onRefreshLibrary,
   hasWatchedFolders = false,
+  onDropMediaToPlaylistTab,
 }) => {
   const styles = useStyles();
   // Tab容器引用
@@ -58,6 +61,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [draggedTabId, setDraggedTabId] = useState<string | null>(null);
   const [dragOverTabId, setDragOverTabId] = useState<string | null>(null);
+  const [fileDropOverTabId, setFileDropOverTabId] = useState<string | null>(null);
 
   // 右键菜单状态
   const [contextMenu, setContextMenu] = useState<TabContextMenuState>({
@@ -167,24 +171,90 @@ export const TabBar: React.FC<TabBarProps> = ({
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  const hasDraggedFiles = (e: React.DragEvent): boolean =>
+    Array.from(e.dataTransfer.types).includes('Files');
+
+  const extractDroppedPaths = (e: React.DragEvent): string[] => {
+    const fromFiles = Array.from(e.dataTransfer.files)
+      .map(file => (file as File & { path?: string }).path)
+      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+
+    if (fromFiles.length > 0) {
+      return Array.from(new Set(fromFiles));
+    }
+
+    const uriList = e.dataTransfer.getData('text/uri-list');
+    if (!uriList) return [];
+
+    const parsed = uriList
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'))
+      .map(uri => {
+        try {
+          const url = new URL(uri);
+          if (url.protocol !== 'file:') return '';
+          let pathname = decodeURIComponent(url.pathname);
+          if (/^\/[a-zA-Z]:\//.test(pathname)) {
+            pathname = pathname.slice(1);
+          }
+          return pathname.replace(/\//g, '\\');
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean);
+
+    return Array.from(new Set(parsed));
+  };
+
   // 拖动经过
   const handleDragOver = (e: React.DragEvent, tabId: string) => {
-    e.preventDefault();
-    if (tabId !== draggedTabId && tabId !== 'media-library') {
-      setDragOverTabId(tabId);
+    if (hasDraggedFiles(e)) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      if (tabId !== 'media-library') {
+        setFileDropOverTabId(tabId);
+      }
+      return;
+    }
+
+    if (isDragging) {
+      e.preventDefault();
+      if (tabId !== draggedTabId && tabId !== 'media-library') {
+        setDragOverTabId(tabId);
+      }
     }
   };
 
   // 拖动离开
   const handleDragLeave = () => {
     setDragOverTabId(null);
+    setFileDropOverTabId(null);
   };
 
   // 拖动放下
   const handleDrop = (e: React.DragEvent, targetTabId: string) => {
     e.preventDefault();
+    const isExternalFileDrop = hasDraggedFiles(e);
+
+    if (isExternalFileDrop) {
+      setFileDropOverTabId(null);
+      if (targetTabId !== 'media-library' && onDropMediaToPlaylistTab) {
+        const paths = extractDroppedPaths(e);
+        if (paths.length > 0) {
+          void onDropMediaToPlaylistTab(targetTabId, paths);
+        }
+      }
+      setIsDragging(false);
+      setDraggedTabId(null);
+      setDragOverTabId(null);
+      return;
+    }
+
     setIsDragging(false);
     setDragOverTabId(null);
+    setFileDropOverTabId(null);
 
     if (draggedTabId && draggedTabId !== targetTabId && targetTabId !== 'media-library') {
       // 重新排序播放列表
@@ -215,6 +285,7 @@ export const TabBar: React.FC<TabBarProps> = ({
     setIsDragging(false);
     setDraggedTabId(null);
     setDragOverTabId(null);
+    setFileDropOverTabId(null);
   };
 
   return (
@@ -277,6 +348,7 @@ export const TabBar: React.FC<TabBarProps> = ({
                 styles.tabItem,
                 activeTabId === playlist.id ? styles.tabItemActive : styles.tabItemIdle,
                 dragOverTabId === playlist.id ? styles.tabDragOver : '',
+                fileDropOverTabId === playlist.id ? styles.tabFileDropOver : '',
                 isDragging && draggedTabId === playlist.id ? 'opacity-50' : ''
               )}
               onClick={() => onTabChange(playlist.id)}
@@ -407,6 +479,10 @@ const useStyles = makeStyles({
   },
   tabDragOver: {
     backgroundColor: colorMix(tokens.colorBrandBackground2, 0.35),
+  },
+  tabFileDropOver: {
+    backgroundColor: colorMix(tokens.colorBrandBackground2, 0.4),
+    borderTopColor: tokens.colorBrandStroke1,
   },
   refreshButton: {
     minWidth: 'unset',

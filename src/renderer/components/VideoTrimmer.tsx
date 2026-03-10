@@ -8,29 +8,85 @@ interface VideoTrimmerProps {
   onComplete: () => void;
 }
 
+interface EditableSegment {
+  id: string;
+  start: number;
+  end: number;
+}
+
+interface SegmentDragState {
+  segmentId: string;
+  edge: 'start' | 'end';
+}
+
 const MIN_WIDTH = 500;
 const MIN_HEIGHT = 400;
-const DEFAULT_WIDTH = 900;
-const DEFAULT_HEIGHT = 600;
+const DEFAULT_WIDTH = 960;
+const DEFAULT_HEIGHT = 680;
+const MIN_SEGMENT_DURATION = 0.1;
+
+const createSegmentId = (): string => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const toNumberOrZero = (value: string): number => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+const clampValue = (value: number, min: number, max: number): number => Math.max(min, Math.min(value, max));
+
+const normalizeSegments = (segments: EditableSegment[], duration: number): EditableSegment[] => {
+  const maxDuration = Math.max(duration, 0);
+  const sorted = [...segments]
+    .map(segment => ({
+      id: segment.id,
+      start: Math.max(0, Math.min(segment.start, maxDuration)),
+      end: Math.max(0, Math.min(segment.end, maxDuration)),
+    }))
+    .filter(segment => segment.end - segment.start >= MIN_SEGMENT_DURATION)
+    .sort((a, b) => a.start - b.start);
+
+  const merged: EditableSegment[] = [];
+  for (const segment of sorted) {
+    const last = merged[merged.length - 1];
+    if (!last) {
+      merged.push(segment);
+      continue;
+    }
+    if (segment.start <= last.end) {
+      last.end = Math.max(last.end, segment.end);
+      continue;
+    }
+    merged.push(segment);
+  }
+
+  return merged;
+};
 
 export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onComplete }) => {
-  const [startTime, setStartTime] = useState(0);
-  const [endTime, setEndTime] = useState(media.duration || 0);
+  const initialDuration = media.duration || 0;
+  const initialDraftEnd = initialDuration > 0 ? Math.min(Math.max(initialDuration * 0.2, 1), initialDuration) : 1;
+
   const [mode, setMode] = useState<'keep' | 'remove'>('keep');
   const [outputDir, setOutputDir] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
 
+  const [videoDuration, setVideoDuration] = useState(initialDuration);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [draftStart, setDraftStart] = useState(0);
+  const [draftEnd, setDraftEnd] = useState(initialDraftEnd);
+  const [segments, setSegments] = useState<EditableSegment[]>([]);
+  const [segmentDrag, setSegmentDrag] = useState<SegmentDragState | null>(null);
+
   // Position and size state
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT });
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
-  const [resizeDirection, setResizeDirection] = useState<string>('');
+  const [resizeDirection, setResizeDirection] = useState('');
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const resizeStartRef = useRef({ x: 0, y: 0, width: 0, height: 0, left: 0, top: 0 });
 
@@ -46,11 +102,20 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
     }
   }, []);
 
+  useEffect(() => {
+    const duration = media.duration || 0;
+    const nextDraftEnd = duration > 0 ? Math.min(Math.max(duration * 0.2, 1), duration) : 1;
+    setVideoDuration(duration);
+    setCurrentTime(0);
+    setDraftStart(0);
+    setDraftEnd(nextDraftEnd);
+    setSegments([]);
+  }, [media]);
+
   // Drag handlers
   const handleMouseDown = useCallback(
     (e: React.MouseEvent, direction: string = '') => {
       if (direction) {
-        // Resize
         setIsResizing(true);
         setResizeDirection(direction);
         resizeStartRef.current = {
@@ -62,7 +127,6 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
           top: position.y,
         };
       } else {
-        // Drag
         setIsDragging(true);
         dragStartRef.current = {
           x: e.clientX - position.x,
@@ -77,9 +141,10 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDragging) {
-        const newX = e.clientX - dragStartRef.current.x;
-        const newY = e.clientY - dragStartRef.current.y;
-        setPosition({ x: newX, y: newY });
+        setPosition({
+          x: e.clientX - dragStartRef.current.x,
+          y: e.clientY - dragStartRef.current.y,
+        });
       } else if (isResizing) {
         const deltaX = e.clientX - resizeStartRef.current.x;
         const deltaY = e.clientY - resizeStartRef.current.y;
@@ -151,7 +216,158 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
     });
   }, [onComplete, onClose]);
 
-  const formatTime = formatDurationWithMs;
+  const clampTime = useCallback(
+    (time: number): number => {
+      if (!Number.isFinite(time)) return 0;
+      if (videoDuration <= 0) return 0;
+      return Math.max(0, Math.min(time, videoDuration));
+    },
+    [videoDuration]
+  );
+
+  const handleVideoMetadata = () => {
+    if (!videoRef.current) return;
+    const duration = videoRef.current.duration;
+    if (!Number.isFinite(duration) || duration <= 0) return;
+    setVideoDuration(duration);
+    setDraftEnd(prev => Math.min(Math.max(prev, 1), duration));
+    setSegments(prev => normalizeSegments(prev, duration));
+  };
+
+  const handleVideoTimeUpdate = () => {
+    if (!videoRef.current) return;
+    setCurrentTime(videoRef.current.currentTime || 0);
+  };
+
+  const handleSeek = (time: number) => {
+    const target = clampTime(time);
+    if (videoRef.current) {
+      videoRef.current.currentTime = target;
+    }
+    setCurrentTime(target);
+  };
+
+  const clientXToTime = useCallback(
+    (clientX: number): number => {
+      if (!timelineRef.current || videoDuration <= 0) return 0;
+      const rect = timelineRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return 0;
+      const ratio = clampValue((clientX - rect.left) / rect.width, 0, 1);
+      return clampTime(ratio * videoDuration);
+    },
+    [clampTime, videoDuration]
+  );
+
+  const handleSetDraftFromCurrent = (side: 'start' | 'end') => {
+    const value = clampTime(videoRef.current?.currentTime || currentTime);
+    if (side === 'start') {
+      setDraftStart(value);
+    } else {
+      setDraftEnd(value);
+    }
+  };
+
+  const handleAddSegment = () => {
+    if (videoDuration <= 0) {
+      window.showToast?.({ message: '无法获取视频时长，暂不能添加区间', type: 'error' });
+      return;
+    }
+
+    const start = clampTime(Math.min(draftStart, draftEnd));
+    const end = clampTime(Math.max(draftStart, draftEnd));
+    if (end - start < MIN_SEGMENT_DURATION) {
+      window.showToast?.({ message: '区间长度至少 0.1 秒', type: 'error' });
+      return;
+    }
+
+    setSegments(prev =>
+      normalizeSegments(
+        [
+          ...prev,
+          {
+            id: createSegmentId(),
+            start,
+            end,
+          },
+        ],
+        videoDuration
+      )
+    );
+  };
+
+  const handleRemoveSegment = (id: string) => {
+    setSegments(prev => prev.filter(segment => segment.id !== id));
+  };
+
+  const handleClearSegments = () => {
+    setSegments([]);
+  };
+
+  const handleTimelineClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (videoDuration <= 0 || segmentDrag) return;
+    handleSeek(clientXToTime(event.clientX));
+  };
+
+  const updateSegmentByDrag = useCallback(
+    (dragState: SegmentDragState, clientX: number) => {
+      const dragTime = clientXToTime(clientX);
+      setSegments(prev => {
+        const sorted = [...prev].sort((a, b) => a.start - b.start).map(segment => ({ ...segment }));
+        const index = sorted.findIndex(segment => segment.id === dragState.segmentId);
+        if (index < 0) return prev;
+
+        const target = sorted[index];
+        const prevSegment = sorted[index - 1];
+        const nextSegment = sorted[index + 1];
+
+        if (dragState.edge === 'start') {
+          const minStart = prevSegment ? prevSegment.end : 0;
+          const maxStart = target.end - MIN_SEGMENT_DURATION;
+          const safeMax = Math.max(minStart, maxStart);
+          target.start = Number(clampValue(dragTime, minStart, safeMax).toFixed(3));
+        } else {
+          const minEnd = target.start + MIN_SEGMENT_DURATION;
+          const maxEnd = nextSegment ? nextSegment.start : videoDuration;
+          const safeMax = Math.max(minEnd, maxEnd);
+          target.end = Number(clampValue(dragTime, minEnd, safeMax).toFixed(3));
+        }
+
+        return sorted;
+      });
+    },
+    [clientXToTime, videoDuration]
+  );
+
+  const handleSegmentHandleMouseDown = (
+    event: React.MouseEvent<HTMLDivElement>,
+    segmentId: string,
+    edge: 'start' | 'end'
+  ) => {
+    event.stopPropagation();
+    event.preventDefault();
+    if (isProcessing || videoDuration <= 0) return;
+    setSegmentDrag({ segmentId, edge });
+  };
+
+  useEffect(() => {
+    if (!segmentDrag) return;
+
+    const handleMouseMove = (event: MouseEvent) => {
+      updateSegmentByDrag(segmentDrag, event.clientX);
+    };
+
+    const handleMouseUp = () => {
+      setSegmentDrag(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [segmentDrag, updateSegmentByDrag]);
 
   const handleSelectOutputDir = async () => {
     const selected = await window.electronAPI.selectOutputDir();
@@ -161,16 +377,21 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
   const generateOutputPath = () => {
     const ext = media.filename.split('.').pop() || 'mp4';
     const baseName = media.filename.replace(/\.[^.]+$/, '');
-    const timestamp = new Date().getTime();
-    const modeSuffix = mode === 'keep' ? 'keep' : 'remove';
-    return `${outputDir}${baseName}_${modeSuffix}_${startTime.toFixed(1)}-${endTime.toFixed(1)}_${timestamp}.${ext}`;
+    const timestamp = Date.now();
+    return `${outputDir}${baseName}_${mode}_${segments.length}seg_${timestamp}.${ext}`;
   };
 
   const handleProcess = async () => {
-    if (startTime >= endTime) {
-      window.showToast?.({ message: '开始时间必须小于结束时间', type: 'error' });
+    const normalized = normalizeSegments(segments, videoDuration).map(segment => ({
+      start: Number(segment.start.toFixed(3)),
+      end: Number(segment.end.toFixed(3)),
+    }));
+
+    if (normalized.length === 0) {
+      window.showToast?.({ message: '请先添加至少一个剪辑区间', type: 'error' });
       return;
     }
+
     setIsProcessing(true);
     setProgress(0);
     setStatus('开始剪辑...');
@@ -180,8 +401,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
         mode,
         input: media.path,
         output: generateOutputPath(),
-        start: startTime,
-        end: endTime,
+        segments: normalized,
       });
     } catch (error) {
       console.error('剪辑失败:', error);
@@ -190,6 +410,13 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
       window.showToast?.({ message: '剪辑失败', type: 'error' });
     }
   };
+
+  const formatTime = formatDurationWithMs;
+  const percentFromTime = (time: number): number =>
+    videoDuration > 0 ? Math.max(0, Math.min((time / videoDuration) * 100, 100)) : 0;
+
+  const draftLeft = percentFromTime(Math.min(draftStart, draftEnd));
+  const draftWidth = percentFromTime(Math.max(draftStart, draftEnd)) - draftLeft;
 
   return (
     <div className="fixed inset-0 bg-[#1a1a1a]/60 z-40" onClick={onClose}>
@@ -204,7 +431,6 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
         }}
         onClick={e => e.stopPropagation()}
       >
-        {/* Draggable header */}
         <div
           className="p-4 border-b border-gray-700 flex justify-between items-center cursor-move select-none bg-gray-800"
           onMouseDown={e => handleMouseDown(e)}
@@ -215,141 +441,270 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({ media, onClose, onCo
           </button>
         </div>
 
-        <div className="p-4 flex-1 overflow-auto">
+        <div className="p-4 flex-1 overflow-auto space-y-4">
           <video
             ref={videoRef}
             src={`file://${media.path}`}
-            className="w-full rounded mb-4 max-h-[200px] object-contain"
+            className="w-full rounded max-h-[220px] object-contain"
             controls
+            onLoadedMetadata={handleVideoMetadata}
+            onTimeUpdate={handleVideoTimeUpdate}
           />
 
-          <div className="space-y-4">
-            <div>
-              <label className="text-gray-400 text-sm block mb-1">输出目录</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={outputDir}
-                  readOnly
-                  className="flex-1 bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded border border-gray-600"
-                />
-                <button
-                  onClick={handleSelectOutputDir}
-                  disabled={isProcessing}
-                  className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-4 py-2 rounded"
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>时间轴（点击跳转，拖拽区间两端手柄微调）</span>
+              <span>
+                当前: {formatTime(currentTime)} / {formatTime(videoDuration)}
+              </span>
+            </div>
+            <div
+              ref={timelineRef}
+              className="relative h-14 rounded bg-gray-700 border border-gray-600 cursor-pointer overflow-hidden"
+              onClick={handleTimelineClick}
+            >
+              {segments.map(segment => (
+                <div
+                  key={segment.id}
+                  className={`absolute top-2 bottom-2 rounded bg-[#005FB8]/70 border border-[#7bb7f0]/70 ${
+                    segmentDrag?.segmentId === segment.id ? 'ring-1 ring-cyan-300/70' : ''
+                  }`}
+                  style={{
+                    left: `${percentFromTime(segment.start)}%`,
+                    width: `${Math.max(0.8, percentFromTime(segment.end) - percentFromTime(segment.start))}%`,
+                  }}
+                  title={`${formatTime(segment.start)} - ${formatTime(segment.end)}`}
                 >
-                  浏览...
-                </button>
-              </div>
-            </div>
-
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 text-white cursor-pointer">
-                <input
-                  type="radio"
-                  value="keep"
-                  checked={mode === 'keep'}
-                  onChange={() => setMode('keep')}
-                  disabled={isProcessing}
-                />
-                <span>保留</span>
-                <span className="text-gray-500 text-sm">（只保留选中片段）</span>
-              </label>
-              <label className="flex items-center gap-2 text-[#e0e0e0] cursor-pointer">
-                <input
-                  type="radio"
-                  value="remove"
-                  checked={mode === 'remove'}
-                  onChange={() => setMode('remove')}
-                  disabled={isProcessing}
-                />
-                <span>删除</span>
-                <span className="text-gray-500 text-sm">（删除选中片段，保留其余）</span>
-              </label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-gray-400 text-sm block mb-1">开始时间 (秒)</label>
-                <input
-                  type="number"
-                  value={startTime}
-                  onChange={e => setStartTime(parseFloat(e.target.value))}
-                  min={0}
-                  max={media.duration}
-                  step={0.1}
-                  disabled={isProcessing}
-                  className="w-full bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded"
-                />
-                <p className="text-gray-500 text-xs mt-1">{formatTime(startTime)}</p>
-              </div>
-              <div>
-                <label className="text-gray-400 text-sm block mb-1">结束时间 (秒)</label>
-                <input
-                  type="number"
-                  value={endTime}
-                  onChange={e => setEndTime(parseFloat(e.target.value))}
-                  min={0}
-                  max={media.duration}
-                  step={0.1}
-                  disabled={isProcessing}
-                  className="w-full bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded"
-                />
-                <p className="text-gray-500 text-xs mt-1">{formatTime(endTime)}</p>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => videoRef.current && (videoRef.current.currentTime = startTime)}
-                disabled={isProcessing}
-                className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-4 py-2 rounded text-sm"
-              >
-                预览开始位置
-              </button>
-              <button
-                onClick={() => videoRef.current && (videoRef.current.currentTime = endTime)}
-                disabled={isProcessing}
-                className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-4 py-2 rounded text-sm"
-              >
-                预览结束位置
-              </button>
-            </div>
-
-            {isProcessing && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>{status || '正在处理...'}</span>
-                  <span>{progress}%</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${progress}%` }}
+                    className="absolute left-0 top-0 bottom-0 w-2 bg-cyan-200/80 hover:bg-cyan-100 cursor-ew-resize"
+                    onMouseDown={event => handleSegmentHandleMouseDown(event, segment.id, 'start')}
+                    onClick={event => event.stopPropagation()}
+                    title="拖拽调整开始时间"
+                  />
+                  <div
+                    className="absolute right-0 top-0 bottom-0 w-2 bg-cyan-200/80 hover:bg-cyan-100 cursor-ew-resize"
+                    onMouseDown={event => handleSegmentHandleMouseDown(event, segment.id, 'end')}
+                    onClick={event => event.stopPropagation()}
+                    title="拖拽调整结束时间"
                   />
                 </div>
-              </div>
-            )}
+              ))}
 
-            {!isProcessing && status && (
+              {draftWidth > 0 && (
+                <div
+                  className="absolute top-1 bottom-1 border border-yellow-300/80 bg-yellow-500/20 rounded"
+                  style={{
+                    left: `${draftLeft}%`,
+                    width: `${draftWidth}%`,
+                  }}
+                  title={`当前编辑区间: ${formatTime(Math.min(draftStart, draftEnd))} - ${formatTime(
+                    Math.max(draftStart, draftEnd)
+                  )}`}
+                />
+              )}
+
               <div
-                className={`p-3 rounded text-sm ${status.includes('失败') ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}`}
-              >
-                {status}
-              </div>
-            )}
-
-            <button
-              onClick={handleProcess}
-              disabled={isProcessing}
-              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-[#e0e0e0] py-3 rounded font-medium"
-            >
-              {isProcessing ? '处理中...' : mode === 'keep' ? '保留片段' : '删除片段'}
-            </button>
+                className="absolute top-0 bottom-0 w-[2px] bg-red-400"
+                style={{ left: `${percentFromTime(currentTime)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[11px] text-gray-500">
+              <span>0</span>
+              <span>{formatTime(videoDuration * 0.25)}</span>
+              <span>{formatTime(videoDuration * 0.5)}</span>
+              <span>{formatTime(videoDuration * 0.75)}</span>
+              <span>{formatTime(videoDuration)}</span>
+            </div>
           </div>
+
+          <div className="space-y-3 p-3 bg-gray-900/50 rounded border border-gray-700">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-gray-400 text-sm block mb-1">区间开始 (秒)</label>
+                <input
+                  type="number"
+                  value={draftStart}
+                  onChange={e => setDraftStart(toNumberOrZero(e.target.value))}
+                  min={0}
+                  max={videoDuration}
+                  step={0.1}
+                  disabled={isProcessing}
+                  className="w-full bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded"
+                />
+                <p className="text-gray-500 text-xs mt-1">{formatTime(draftStart)}</p>
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm block mb-1">区间结束 (秒)</label>
+                <input
+                  type="number"
+                  value={draftEnd}
+                  onChange={e => setDraftEnd(toNumberOrZero(e.target.value))}
+                  min={0}
+                  max={videoDuration}
+                  step={0.1}
+                  disabled={isProcessing}
+                  className="w-full bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded"
+                />
+                <p className="text-gray-500 text-xs mt-1">{formatTime(draftEnd)}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => handleSetDraftFromCurrent('start')}
+                disabled={isProcessing}
+                className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-3 py-2 rounded text-sm"
+              >
+                设当前为开始
+              </button>
+              <button
+                onClick={() => handleSetDraftFromCurrent('end')}
+                disabled={isProcessing}
+                className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-3 py-2 rounded text-sm"
+              >
+                设当前为结束
+              </button>
+              <button
+                onClick={handleAddSegment}
+                disabled={isProcessing}
+                className="bg-[#005FB8] hover:bg-[#0a6ccb] text-white px-3 py-2 rounded text-sm"
+              >
+                添加区间
+              </button>
+              <button
+                onClick={handleClearSegments}
+                disabled={isProcessing || segments.length === 0}
+                className="bg-gray-700 hover:bg-gray-600 disabled:bg-gray-700/60 disabled:text-gray-500 text-[#e0e0e0] px-3 py-2 rounded text-sm"
+              >
+                清空区间
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm text-gray-300">
+              <span>剪辑区间列表</span>
+              <span className="text-xs text-gray-500">共 {segments.length} 段</span>
+            </div>
+            <div className="max-h-40 overflow-auto space-y-2 pr-1">
+              {segments.length === 0 && (
+                <div className="text-sm text-gray-500 bg-gray-900/40 rounded p-3">
+                  还没有区间，先在时间轴或输入框中设置开始/结束后点击“添加区间”。
+                </div>
+              )}
+              {segments.map((segment, index) => (
+                <div
+                  key={segment.id}
+                  className="flex items-center justify-between bg-gray-900/60 border border-gray-700 rounded p-2 gap-2"
+                >
+                  <div className="text-sm text-gray-200">
+                    #{index + 1} {formatTime(segment.start)} - {formatTime(segment.end)}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSeek(segment.start)}
+                      className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                    >
+                      跳到开始
+                    </button>
+                    <button
+                      onClick={() => handleSeek(segment.end)}
+                      className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-200"
+                    >
+                      跳到结束
+                    </button>
+                    <button
+                      onClick={() => handleRemoveSegment(segment.id)}
+                      className="text-xs px-2 py-1 rounded bg-red-700/70 hover:bg-red-700 text-red-100"
+                    >
+                      删除
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-gray-400 text-sm block mb-1">输出目录</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={outputDir}
+                readOnly
+                className="flex-1 bg-gray-700 text-[#e0e0e0] px-3 py-2 rounded border border-gray-600"
+              />
+              <button
+                onClick={handleSelectOutputDir}
+                disabled={isProcessing}
+                className="bg-gray-700 hover:bg-gray-600 text-[#e0e0e0] px-4 py-2 rounded"
+              >
+                浏览...
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 text-[#e0e0e0] cursor-pointer">
+              <input
+                type="radio"
+                value="keep"
+                checked={mode === 'keep'}
+                onChange={() => setMode('keep')}
+                disabled={isProcessing}
+              />
+              <span>保留</span>
+              <span className="text-gray-500 text-sm">（输出区间列表内的片段）</span>
+            </label>
+            <label className="flex items-center gap-2 text-[#e0e0e0] cursor-pointer">
+              <input
+                type="radio"
+                value="remove"
+                checked={mode === 'remove'}
+                onChange={() => setMode('remove')}
+                disabled={isProcessing}
+              />
+              <span>删除</span>
+              <span className="text-gray-500 text-sm">（删除区间列表内的片段）</span>
+            </label>
+          </div>
+
+          {isProcessing && (
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm text-gray-400">
+                <span>{status || '正在处理...'}</span>
+                <span>{progress}%</span>
+              </div>
+              <div className="w-full bg-gray-700 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isProcessing && status && (
+            <div
+              className={`p-3 rounded text-sm ${status.includes('失败') ? 'bg-red-900/50 text-red-300' : 'bg-green-900/50 text-green-300'}`}
+            >
+              {status}
+            </div>
+          )}
+
+          <button
+            onClick={handleProcess}
+            disabled={isProcessing}
+            className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-[#e0e0e0] py-3 rounded font-medium"
+          >
+            {isProcessing
+              ? '处理中...'
+              : mode === 'keep'
+                ? `导出保留片段（${segments.length} 段）`
+                : `导出删除片段（${segments.length} 段）`}
+          </button>
         </div>
 
-        {/* Resize handles */}
         <div
           className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-50"
           onMouseDown={e => handleMouseDown(e, 'se')}

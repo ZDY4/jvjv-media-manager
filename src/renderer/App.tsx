@@ -23,22 +23,6 @@ function App() {
   // Initialization
   useAppInit();
 
-  // 从 Data 目录加载密码
-  useEffect(() => {
-    const loadPassword = async () => {
-      if (!window.electronAPI) return;
-      try {
-        const password = await window.electronAPI.getLockPassword();
-        if (password) {
-          setLockPassword(password);
-        }
-      } catch (error) {
-        console.error('加载密码失败:', error);
-      }
-    };
-    loadPassword();
-  }, [setLockPassword]);
-
   // Stores
   const {
     showSettings,
@@ -56,6 +40,22 @@ function App() {
     unlockFolder,
     apiReady,
   } = useAppStore();
+
+  // 从 Data 目录加载密码
+  useEffect(() => {
+    const loadPassword = async () => {
+      if (!window.electronAPI) return;
+      try {
+        const password = await window.electronAPI.getLockPassword();
+        if (password) {
+          setLockPassword(password);
+        }
+      } catch (error) {
+        console.error('加载密码失败:', error);
+      }
+    };
+    loadPassword();
+  }, [setLockPassword]);
 
   const { selectedMediaIds, lastSelectedId, filteredMediaList } = useMediaStore();
 

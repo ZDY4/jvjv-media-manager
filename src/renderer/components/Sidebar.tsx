@@ -76,13 +76,16 @@ export const Sidebar: React.FC = () => {
     handleOpenMediaFolder,
     handleAddFiles,
     handleAddFolder,
+    handleAddPaths,
   } = useMediaActions();
 
   // Local state for resizing
   const [isResizing, setIsResizing] = useState(false);
+  const [isDropActive, setIsDropActive] = useState(false);
 
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   // 初始化加载播放列表
   useEffect(() => {
@@ -152,6 +155,26 @@ export const Sidebar: React.FC = () => {
     ? setLibraryLastSelectedId
     : setPlaylistLastSelectedId;
   const toggleCurrentSort = isLibraryActive ? toggleLibrarySort : togglePlaylistSort;
+  const currentSortLabel =
+    currentSortField === 'filename'
+      ? `名称${currentSortOrder === 'asc' ? '↑' : '↓'}`
+      : `日期${currentSortOrder === 'asc' ? '↑' : '↓'}`;
+
+  const handleCycleSortMode = () => {
+    if (currentSortField === 'filename' && currentSortOrder === 'asc') {
+      toggleCurrentSort('filename'); // 名称↑ -> 名称↓
+      return;
+    }
+    if (currentSortField === 'filename' && currentSortOrder === 'desc') {
+      toggleCurrentSort('modifiedAt'); // 名称↓ -> 日期↑
+      return;
+    }
+    if (currentSortField === 'modifiedAt' && currentSortOrder === 'asc') {
+      toggleCurrentSort('modifiedAt'); // 日期↑ -> 日期↓
+      return;
+    }
+    toggleCurrentSort('filename'); // 日期↓ -> 名称↑
+  };
 
   // 处理媒体点击
   const handleMediaClick = (media: MediaFile, isCtrlClick: boolean, isShiftClick: boolean) => {
@@ -308,6 +331,126 @@ export const Sidebar: React.FC = () => {
     };
   }, [handleAddFiles]);
 
+  const hasDraggedFiles = (event: React.DragEvent): boolean =>
+    Array.from(event.dataTransfer.types).includes('Files');
+
+  const extractDroppedPaths = (event: React.DragEvent): string[] => {
+    const fromFiles = Array.from(event.dataTransfer.files)
+      .map(file => (file as File & { path?: string }).path)
+      .filter((p): p is string => typeof p === 'string' && p.length > 0);
+
+    if (fromFiles.length > 0) {
+      return Array.from(new Set(fromFiles));
+    }
+
+    const uriList = event.dataTransfer.getData('text/uri-list');
+    if (!uriList) return [];
+
+    const parsed = uriList
+      .split('\n')
+      .map(line => line.trim())
+      .filter(line => line.length > 0 && !line.startsWith('#'))
+      .map(uri => {
+        try {
+          const url = new URL(uri);
+          if (url.protocol !== 'file:') return '';
+          let pathname = decodeURIComponent(url.pathname);
+          if (/^\/[a-zA-Z]:\//.test(pathname)) {
+            pathname = pathname.slice(1);
+          }
+          return pathname.replace(/\//g, '\\');
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean);
+
+    return Array.from(new Set(parsed));
+  };
+
+  const handleDropMediaToPlaylistTab = useCallback(
+    async (playlistId: string, paths: string[]) => {
+      if (!window.electronAPI) return;
+
+      const importedMedia = await handleAddPaths(paths, { silentSuccessToast: true });
+      if (importedMedia.length === 0) {
+        return;
+      }
+
+      const mediaIds = Array.from(new Set(importedMedia.map(media => media.id)));
+      if (mediaIds.length === 0) {
+        window.showToast?.({ message: '未找到可添加到播放列表的媒体', type: 'info' });
+        return;
+      }
+
+      try {
+        const success = await window.electronAPI.addMediaToPlaylist(playlistId, mediaIds);
+        if (!success) {
+          window.showToast?.({ message: '导入成功，但加入播放列表失败', type: 'error' });
+          return;
+        }
+
+        if (activeTabId === playlistId) {
+          await loadPlaylistMedia(playlistId);
+        }
+
+        const playlistName = playlists.find(item => item.id === playlistId)?.name ?? '目标播放列表';
+        window.showToast?.({
+          message: `已导入并添加 ${mediaIds.length} 个文件到 "${playlistName}"`,
+          type: 'success',
+        });
+      } catch (error) {
+        console.error('拖拽添加到播放列表失败:', error);
+        window.showToast?.({ message: '拖拽添加到播放列表失败', type: 'error' });
+      }
+    },
+    [handleAddPaths, activeTabId, loadPlaylistMedia, playlists]
+  );
+
+  const handleLibraryDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isLibraryActive || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current += 1;
+    setIsDropActive(true);
+  };
+
+  const handleLibraryDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isLibraryActive || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = 'copy';
+    if (!isDropActive) {
+      setIsDropActive(true);
+    }
+  };
+
+  const handleLibraryDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isLibraryActive || !hasDraggedFiles(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) {
+      setIsDropActive(false);
+    }
+  };
+
+  const handleLibraryDrop = async (event: React.DragEvent<HTMLDivElement>) => {
+    if (!isLibraryActive) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDropActive(false);
+
+    const droppedPaths = extractDroppedPaths(event);
+    if (droppedPaths.length === 0) {
+      window.showToast?.({ message: '未检测到可导入的文件或文件夹', type: 'info' });
+      return;
+    }
+
+    await handleAddPaths(droppedPaths);
+  };
+
   const selectedIndex = currentLastSelectedId
     ? currentMediaList.findIndex(m => m.id === currentLastSelectedId)
     : -1;
@@ -372,6 +515,7 @@ export const Sidebar: React.FC = () => {
           onReorderPlaylists={handleReorderPlaylists}
           onRefreshLibrary={handleRefreshFolders}
           hasWatchedFolders={watchedFolders.length > 0}
+          onDropMediaToPlaylistTab={handleDropMediaToPlaylistTab}
         />
 
         {/* 搜索栏 */}
@@ -421,25 +565,15 @@ export const Sidebar: React.FC = () => {
               </Button>
             </div>
 
-            {/* 排序按钮 */}
-            <div className="flex items-center gap-1">
-              <Button
-                appearance={currentSortField === 'filename' ? 'primary' : 'subtle'}
-                size="small"
-                onClick={() => toggleCurrentSort('filename')}
-                className={styles.sortButton}
-              >
-                名称 {currentSortField === 'filename' && (currentSortOrder === 'asc' ? '↑' : '↓')}
-              </Button>
-              <Button
-                appearance={currentSortField === 'modifiedAt' ? 'primary' : 'subtle'}
-                size="small"
-                onClick={() => toggleCurrentSort('modifiedAt')}
-                className={styles.sortButton}
-              >
-                日期 {currentSortField === 'modifiedAt' && (currentSortOrder === 'asc' ? '↑' : '↓')}
-              </Button>
-            </div>
+            <Button
+              appearance="subtle"
+              size="small"
+              onClick={handleCycleSortMode}
+              className={styles.sortButton}
+              title="循环切换：名称↑ → 名称↓ → 日期↑ → 日期↓"
+            >
+              排序: {currentSortLabel}
+            </Button>
 
             {/* 清空按钮 */}
             {currentMediaList.length > 0 && (
@@ -469,7 +603,22 @@ export const Sidebar: React.FC = () => {
         </div>
 
         {/* 媒体网格 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div
+          className={`flex-1 flex flex-col overflow-hidden relative ${
+            isDropActive ? 'ring-2 ring-[#005FB8]/70 ring-inset bg-[#005FB8]/5' : ''
+          }`}
+          onDragEnter={handleLibraryDragEnter}
+          onDragOver={handleLibraryDragOver}
+          onDragLeave={handleLibraryDragLeave}
+          onDrop={handleLibraryDrop}
+        >
+          {isDropActive && isLibraryActive && (
+            <div className="absolute inset-3 border-2 border-dashed border-[#63AFFF] rounded-xl bg-[#005FB8]/10 pointer-events-none z-20 flex items-center justify-center">
+              <div className="text-[#e0e0e0] text-sm bg-black/35 px-4 py-2 rounded-lg">
+                释放鼠标以添加文件或文件夹到媒体库
+              </div>
+            </div>
+          )}
           <MediaGrid
             mediaList={currentMediaList}
             selectedIds={currentSelectedIds}
@@ -545,7 +694,7 @@ const useStyles = makeStyles({
     minWidth: '52px',
   },
   sortButton: {
-    minWidth: '66px',
+    minWidth: '128px',
   },
   clearButton: {
     color: tokens.colorPaletteRedForeground2,

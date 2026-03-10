@@ -3,8 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 import ffmpeg from 'fluent-ffmpeg';
-import { path as ffmpegPath } from '@ffmpeg-installer/ffmpeg';
 import { getDefaultDataDir } from './utils/config';
+import { getFfmpegPath } from './utils/paths';
 
 const THUMBNAIL_SIZE = 200; // 缩略图宽度
 const THUMBNAIL_EXT = '.thumb'; // 使用自定义扩展名，不被 Windows 识别为图片
@@ -111,7 +111,7 @@ export async function generateVideoThumbnail(filePath: string): Promise<string |
     const windowsPath = process.platform === 'win32' ? toWindowsPath(filePath) : filePath;
 
     // 使用 ffmpeg 提取第一帧
-    ffmpeg.setFfmpegPath(ffmpegPath);
+    ffmpeg.setFfmpegPath(getFfmpegPath());
 
     await new Promise<void>((resolve, reject) => {
       ffmpeg(windowsPath)

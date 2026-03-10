@@ -5,8 +5,7 @@
 
 import { app } from 'electron';
 import path from 'path';
-import { path as devFfmpegPath } from '@ffmpeg-installer/ffmpeg';
-import { path as devFfprobePath } from '@ffprobe-installer/ffprobe';
+import fs from 'fs';
 
 /**
  * Get the base path for resources
@@ -26,17 +25,43 @@ export function getResourcesPath(): string {
  */
 export function getFfmpegPath(): string {
   if (app.isPackaged) {
-    return path.join(
-      process.resourcesPath,
-      'app.asar.unpacked',
-      'node_modules',
-      '@ffmpeg-installer',
-      'ffmpeg',
-      process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg'
-    );
+    const binary = process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+    const platformDir = `${process.platform}-${process.arch}`;
+    const candidates = [
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffmpeg-installer',
+        platformDir,
+        binary
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffmpeg-installer',
+        'ffmpeg',
+        platformDir,
+        binary
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffmpeg-installer',
+        'ffmpeg',
+        binary
+      ),
+    ];
+
+    const found = candidates.find(candidate => fs.existsSync(candidate));
+    return found || candidates[0];
   }
   // Development: use @ffmpeg-installer
-  return devFfmpegPath;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg') as { path: string };
+  return ffmpegInstaller.path;
 }
 
 /**
@@ -45,17 +70,43 @@ export function getFfmpegPath(): string {
  */
 export function getFfprobePath(): string {
   if (app.isPackaged) {
-    return path.join(
-      process.resourcesPath,
-      'app.asar.unpacked',
-      'node_modules',
-      '@ffprobe-installer',
-      'ffprobe',
-      process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
-    );
+    const binary = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+    const platformDir = `${process.platform}-${process.arch}`;
+    const candidates = [
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffprobe-installer',
+        platformDir,
+        binary
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffprobe-installer',
+        'ffprobe',
+        platformDir,
+        binary
+      ),
+      path.join(
+        process.resourcesPath,
+        'app.asar.unpacked',
+        'node_modules',
+        '@ffprobe-installer',
+        'ffprobe',
+        binary
+      ),
+    ];
+
+    const found = candidates.find(candidate => fs.existsSync(candidate));
+    return found || candidates[0];
   }
   // Development: use @ffprobe-installer
-  return devFfprobePath;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ffprobeInstaller = require('@ffprobe-installer/ffprobe') as { path: string };
+  return ffprobeInstaller.path;
 }
 
 /**

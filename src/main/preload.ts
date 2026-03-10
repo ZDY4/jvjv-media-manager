@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { MediaFile } from '../shared/types';
+import type {
+  AutoUpdateStatus,
+  CacheClearResult,
+  CacheClearScope,
+  CacheStatus,
+  MediaFile,
+  PortableModeStatus,
+} from '../shared/types';
 
 console.log('[Preload] 开始初始化 Electron API...');
 
@@ -7,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 媒体库
   addMediaFiles: () => ipcRenderer.invoke('add-media-files'),
   addMediaFolder: () => ipcRenderer.invoke('add-media-folder'),
+  addMediaPaths: (paths: string[]) => ipcRenderer.invoke('add-media-paths', paths),
   scanMediaFolder: () => ipcRenderer.invoke('add-media-folder'), // 向后兼容
   getAllMedia: () => ipcRenderer.invoke('get-all-media'),
   searchMediaByTags: (tags: string[]) => ipcRenderer.invoke('search-media-by-tags', tags),
@@ -27,11 +35,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     mode: 'keep' | 'remove';
     input: string;
     output: string;
-    start: number;
-    end: number;
+    segments: { start: number; end: number }[];
   }) => ipcRenderer.invoke('trim-video-start', params),
   selectOutputDir: () => ipcRenderer.invoke('select-output-dir'),
-  onTrimProgress: (callback: (data: { percent: number; mode: string }) => void) => {
+  onTrimProgress: (callback: (data: { percent: number; mode: 'keep' | 'remove' }) => void) => {
     // 移除旧的监听器以避免重复
     ipcRenderer.removeAllListeners('trim-progress');
     ipcRenderer.on('trim-progress', (_, data) => callback(data));
@@ -44,10 +51,28 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('trim-complete', (_, data) => callback(data));
   },
 
+  // 应用更新
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  getAutoUpdateStatus: () => ipcRenderer.invoke('get-auto-update-status'),
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  quitAndInstallUpdate: () => ipcRenderer.invoke('quit-and-install-update'),
+  onAutoUpdateStatus: (callback: (data: AutoUpdateStatus) => void) => {
+    ipcRenderer.removeAllListeners('auto-update-status');
+    ipcRenderer.on('auto-update-status', (_, data) => callback(data));
+    return () => {
+      ipcRenderer.removeAllListeners('auto-update-status');
+    };
+  },
+
   // 数据目录管理
   getDataDir: () => ipcRenderer.invoke('get-data-dir'),
   setDataDir: (dirPath: string) => ipcRenderer.invoke('set-data-dir', dirPath),
   selectDataDir: () => ipcRenderer.invoke('select-data-dir'),
+  getPortableModeStatus: () => ipcRenderer.invoke('get-portable-mode-status') as Promise<PortableModeStatus>,
+  setPortableMode: (enabled: boolean) => ipcRenderer.invoke('set-portable-mode', enabled),
+  getCacheStatus: () => ipcRenderer.invoke('get-cache-status') as Promise<CacheStatus>,
+  clearCache: (scope: CacheClearScope) =>
+    ipcRenderer.invoke('clear-cache', scope) as Promise<CacheClearResult>,
 
   // 密码管理
   getLockPassword: () => ipcRenderer.invoke('get-lock-password'),

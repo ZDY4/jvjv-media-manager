@@ -106,15 +106,14 @@ export function isValidDirectoryPath(dirPath: string): boolean {
 }
 
 export function validateTimestamp(time: number): boolean {
-  return typeof time === 'number' && time >= 0 && time <= 3600;
+  return typeof time === 'number' && Number.isFinite(time) && time >= 0;
 }
 
 export function validateTrimParams(params: {
   mode: string;
   input: string;
   output: string;
-  start: number;
-  end: number;
+  segments: Array<{ start: number; end: number }>;
 }): { valid: boolean; error?: string } {
   if (params.mode !== 'keep' && params.mode !== 'remove') {
     return { valid: false, error: '无效的剪辑模式' };
@@ -129,12 +128,23 @@ export function validateTrimParams(params: {
     return { valid: false, error: '输出目录不存在或不可访问' };
   }
 
-  if (!validateTimestamp(params.start) || !validateTimestamp(params.end)) {
-    return { valid: false, error: '无效的时间戳' };
+  if (!Array.isArray(params.segments) || params.segments.length === 0) {
+    return { valid: false, error: '至少需要一个剪辑区间' };
   }
 
-  if (params.start >= params.end) {
-    return { valid: false, error: '开始时间必须小于结束时间' };
+  let lastEnd = -1;
+  for (let i = 0; i < params.segments.length; i++) {
+    const segment = params.segments[i];
+    if (!validateTimestamp(segment.start) || !validateTimestamp(segment.end)) {
+      return { valid: false, error: `第 ${i + 1} 个区间时间无效` };
+    }
+    if (segment.start >= segment.end) {
+      return { valid: false, error: `第 ${i + 1} 个区间开始时间必须小于结束时间` };
+    }
+    if (segment.start < lastEnd) {
+      return { valid: false, error: '剪辑区间不能重叠，且必须按时间顺序排列' };
+    }
+    lastEnd = segment.end;
   }
 
   return { valid: true };
